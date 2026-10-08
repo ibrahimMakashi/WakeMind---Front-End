@@ -1,0 +1,15 @@
+---
+description: Android alarm engine rules
+globs: android/**/*.kt
+alwaysApply: false
+---
+
+# Android alarm engine
+
+- Use `AlarmManager.setAlarmClock` and a `BroadcastReceiver`.
+- Declare `SCHEDULE_EXACT_ALARM` with `maxSdkVersion="32"` and `USE_EXACT_ALARM` for Android 13+.
+- Show the Alarms & reminders settings page only for API 31–32 when `canScheduleExactAlarms()` is false.
+- On API 33+, do not open that settings page. `USE_EXACT_ALARM` is granted at install.
+- Start the ringtone as a `mediaPlayback` foreground service and call `startForeground` before audio.
+- Do not start the ringtone service from `BOOT_COMPLETED`.
+- Play alarm audio with `USAGE_ALARM`. Stop audio, vibration, the notification, and the wake lock together.

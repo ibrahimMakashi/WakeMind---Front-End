@@ -1,0 +1,14 @@
+---
+description: WakeMind app standards for every session
+alwaysApply: true
+---
+
+# WakeMind standards
+
+- Write the React Native app in JavaScript. Do not add TypeScript.
+- Android is the shipping platform. Kotlin owns scheduling, storage, sound, vibration, and the ringing screen.
+- Do not schedule alarms with `setTimeout`, `setInterval`, push, or a server.
+- An alarm must still fire after the JS process dies and Metro stops.
+- Do not add puzzle, questions, auth, billing, backend, SQLite, MMKV, Redux, or React Navigation unless that milestone is requested.
+- Explain why a new dependency is required before adding it.
+- Handle errors explicitly. Do not leave empty catch blocks.
