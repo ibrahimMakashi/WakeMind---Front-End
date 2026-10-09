@@ -33,4 +33,25 @@ internal object AlarmTime {
   ): Long {
     return nowMillis + offsetSeconds * 1000L
   }
+
+  fun triggerAfterChange(
+      hour: Int,
+      minute: Int,
+      existingTriggerMillis: Long,
+      nowMillis: Long,
+      timeZone: TimeZone,
+  ): Long {
+    if (existingTriggerMillis > nowMillis &&
+        localField(existingTriggerMillis, timeZone, Calendar.HOUR_OF_DAY) == hour &&
+        localField(existingTriggerMillis, timeZone, Calendar.MINUTE) == minute) {
+      return existingTriggerMillis
+    }
+    return nextClockTriggerMillis(hour, minute, nowMillis, timeZone)
+  }
+
+  private fun localField(timeMillis: Long, timeZone: TimeZone, field: Int): Int {
+    val calendar = Calendar.getInstance(timeZone)
+    calendar.timeInMillis = timeMillis
+    return calendar.get(field)
+  }
 }

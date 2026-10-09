@@ -80,20 +80,10 @@ internal object AlarmScheduler {
   fun rescheduleEnabled(context: Context) {
     val store = AlarmStore(context)
     val now = System.currentTimeMillis()
-    store.list().filter { alarm -> alarm.enabled }.forEach { alarm ->
+    AlarmReschedule.plan(store.list(), now, TimeZone.getDefault()).forEach { alarm ->
       try {
-        val refreshed =
-            alarm.copy(
-                triggerAtMillis =
-                    AlarmTime.nextClockTriggerMillis(
-                        alarm.hour,
-                        alarm.minute,
-                        now,
-                        TimeZone.getDefault(),
-                    ),
-            )
-        store.upsert(refreshed)
-        schedule(context, refreshed)
+        store.upsert(alarm)
+        schedule(context, alarm)
       } catch (error: Exception) {
         Log.e(ALARM_LOG_TAG, "Could not reschedule ${alarm.id}", error)
       }
@@ -129,7 +119,7 @@ internal object AlarmScheduler {
   }
 
   private fun requestCode(alarmId: String): Int {
-    return alarmId.hashCode() and 0x7FFFFFFF
+    return AlarmReschedule.requestCode(alarmId)
   }
 
   private const val SHOW_REQUEST_CODE = 41001

@@ -41,6 +41,35 @@ class AlarmTimeTest {
     assertEquals(1_060_000L, AlarmTime.testTriggerMillis(1_000_000L, 60))
   }
 
+  @Test
+  fun keepsAnUpcomingTriggerOnTheSavedMinute() {
+    val trigger = utc(2026, 10, 9, 21, 46) + 27_000L
+    val now = utc(2026, 10, 9, 21, 40)
+    assertEquals(trigger, AlarmTime.triggerAfterChange(21, 46, trigger, now, timeZone))
+  }
+
+  @Test
+  fun movesATriggerThatIsAlreadyPastToTheNextDay() {
+    val trigger = utc(2026, 10, 9, 21, 46) + 27_000L
+    val now = utc(2026, 10, 9, 21, 47)
+    assertEquals(
+        utc(2026, 10, 10, 21, 46),
+        AlarmTime.triggerAfterChange(21, 46, trigger, now, timeZone),
+    )
+  }
+
+  @Test
+  fun recalculatesWhenTheTimezoneChangesTheLocalTime() {
+    val kolkata = TimeZone.getTimeZone("Asia/Kolkata")
+    val trigger = utc(2026, 10, 9, 16, 16)
+    val now = utc(2026, 10, 9, 16, 0)
+    assertEquals(trigger, AlarmTime.triggerAfterChange(21, 46, trigger, now, kolkata))
+    assertEquals(
+        utc(2026, 10, 9, 21, 46),
+        AlarmTime.triggerAfterChange(21, 46, trigger, now, timeZone),
+    )
+  }
+
   private fun utc(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
     val calendar = java.util.Calendar.getInstance(timeZone)
     calendar.set(java.util.Calendar.YEAR, year)
