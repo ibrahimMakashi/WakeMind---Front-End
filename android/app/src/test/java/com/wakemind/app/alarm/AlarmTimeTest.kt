@@ -37,6 +37,15 @@ class AlarmTimeTest {
   }
 
   @Test
+  fun reenabledPastMinuteIsScheduledTomorrow() {
+    val now = utc(2026, 10, 9, 21, 50)
+    assertEquals(
+        utc(2026, 10, 10, 21, 40),
+        AlarmTime.nextClockTriggerMillis(21, 40, now, timeZone),
+    )
+  }
+
+  @Test
   fun addsTheTestOffset() {
     assertEquals(1_060_000L, AlarmTime.testTriggerMillis(1_000_000L, 60))
   }
