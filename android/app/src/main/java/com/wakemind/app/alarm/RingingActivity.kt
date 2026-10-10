@@ -1,8 +1,13 @@
 package com.wakemind.app.alarm
 
+import android.content.res.ColorStateList
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -15,7 +20,9 @@ class RingingActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     showOverLockScreen()
+    applyTheme()
     setContentView(R.layout.activity_ringing)
+    applyTheme()
     onBackPressedDispatcher.addCallback(
         this,
         object : OnBackPressedCallback(true) {
@@ -24,7 +31,7 @@ class RingingActivity : AppCompatActivity() {
           }
         },
     )
-    findViewById<android.widget.Button>(R.id.stopButton).setOnClickListener { stopAndFinish() }
+    findViewById<Button>(R.id.stopButton).setOnClickListener { stopAndFinish() }
     bind(intent)
   }
 
@@ -52,6 +59,25 @@ class RingingActivity : AppCompatActivity() {
             }
         ContextCompat.startForegroundService(this, restart)
       }
+    }
+  }
+
+  private fun applyTheme() {
+    try {
+      val palette = ThemePalettes.resolve(this)
+      window.statusBarColor = palette.background
+      window.navigationBarColor = palette.background
+      window.setBackgroundDrawable(ColorDrawable(palette.background))
+      val root = findViewById<View>(R.id.ringingRoot) ?: return
+      root.setBackgroundColor(palette.background)
+      findViewById<TextView>(R.id.ringingWordmark).setTextColor(palette.accent)
+      findViewById<TextView>(R.id.ringingTime).setTextColor(palette.text)
+      findViewById<TextView>(R.id.ringingLabel).setTextColor(palette.muted)
+      val stop = findViewById<Button>(R.id.stopButton)
+      stop.backgroundTintList = ColorStateList.valueOf(palette.stop)
+      stop.setTextColor(palette.stopText)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not apply the ringing theme.", error)
     }
   }
 

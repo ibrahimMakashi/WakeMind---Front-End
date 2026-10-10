@@ -1,3 +1,8 @@
+export const boot = {
+  background: '#C8C2B8',
+  indicator: '#3E3A36',
+};
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -16,6 +21,7 @@ export const palettes = {
     accent: '#44507A',
     accentText: '#F8F5F0',
     danger: '#A33B32',
+    onDanger: '#F8F5F0',
     error: '#A33B32',
     warning: '#8A5A12',
     success: '#2F6B4F',
@@ -33,6 +39,7 @@ export const palettes = {
     accent: '#CDBFEA',
     accentText: '#221C2E',
     danger: '#E38B7C',
+    onDanger: '#221C2E',
     error: '#E38B7C',
     warning: '#E2C07A',
     success: '#9DC4AA',

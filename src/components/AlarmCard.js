@@ -2,10 +2,18 @@ import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
 import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 import {difficultyLabel, formatClock, repeatLabel} from '../utils/time';
+import {AppIcon} from './AppIcon';
 
 export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
   const {colors} = useTheme();
   const clock = formatClock(alarm.hour, alarm.minute);
+  const details = [
+    alarm.label,
+    repeatLabel(alarm.repeat),
+    difficultyLabel(alarm.difficulty),
+    'Sound',
+    alarm.vibrate ? 'Vibrate' : 'Silent',
+  ].join(' · ');
   return (
     <View
       style={[
@@ -17,43 +25,40 @@ export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
           <Text style={[styles.time, {color: colors.text}]}>
             {clock.hourText}:{clock.minuteText}
           </Text>
-          <Text style={[styles.period, {color: colors.muted}]}>
-            {clock.period}
-          </Text>
+          <Text style={[styles.period, {color: colors.muted}]}>{clock.period}</Text>
         </View>
-        <Switch
-          accessibilityLabel={
-            alarm.enabled ? 'Turn alarm off' : 'Turn alarm on'
-          }
-          disabled={disabled}
-          value={alarm.enabled}
-          onValueChange={onToggle}
-          trackColor={{false: colors.line, true: colors.success}}
-          thumbColor={colors.text}
-        />
+        <View style={styles.switchHit}>
+          <Switch
+            accessibilityLabel={
+              alarm.enabled
+                ? `Turn ${alarm.label} off`
+                : `Turn ${alarm.label} on`
+            }
+            disabled={disabled}
+            value={alarm.enabled}
+            onValueChange={onToggle}
+            trackColor={{false: colors.line, true: colors.success}}
+            thumbColor={colors.text}
+          />
+        </View>
       </View>
-      <Text style={[styles.meta, {color: colors.muted}]}>
-        {repeatLabel(alarm.repeat)} · {difficultyLabel(alarm.difficulty)}
-      </Text>
-      <Text style={[styles.meta, {color: colors.muted}]}>
-        {alarm.label} · Sound · {alarm.vibrate ? 'Vibrate' : 'Silent'}
-      </Text>
-      <View style={styles.actions}>
+      <View style={styles.bottomRow}>
+        <Text style={[styles.meta, {color: colors.muted}]}>{details}</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`Edit ${alarm.label}`}
           disabled={disabled}
           onPress={onEdit}
-          style={styles.action}>
-          <Text style={[styles.actionText, {color: colors.accent}]}>Edit</Text>
+          style={styles.iconButton}>
+          <AppIcon name="pencil-outline" color={colors.accent} size={22} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`Delete ${alarm.label}`}
           disabled={disabled}
           onPress={onDelete}
-          style={styles.action}>
-          <Text style={[styles.actionText, {color: colors.danger}]}>
-            Delete
-          </Text>
+          style={styles.iconButton}>
+          <AppIcon name="delete-outline" color={colors.danger} size={22} />
         </Pressable>
       </View>
     </View>
@@ -62,46 +67,56 @@ export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    marginBottom: spacing.md,
-    padding: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   topRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    minHeight: 44,
   },
   timeBlock: {
     alignItems: 'flex-end',
     flexDirection: 'row',
+    flexShrink: 1,
   },
   time: {
-    fontSize: 40,
+    fontSize: 32,
+    fontVariant: ['tabular-nums'],
     fontWeight: '700',
-    letterSpacing: -1,
+    letterSpacing: -0.6,
   },
   period: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 5,
     marginLeft: spacing.sm,
   },
-  meta: {
-    fontSize: 14,
-    marginTop: spacing.xs,
-  },
-  actions: {
-    flexDirection: 'row',
-    marginTop: spacing.md,
-  },
-  action: {
-    marginRight: spacing.lg,
-    minHeight: 44,
+  switchHit: {
+    alignItems: 'flex-end',
     justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 52,
   },
-  actionText: {
-    fontSize: 15,
-    fontWeight: '700',
+  bottomRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  meta: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    marginRight: spacing.xs,
+  },
+  iconButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
 });

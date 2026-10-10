@@ -152,6 +152,28 @@ class AlarmModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun getThemeMode(promise: Promise) {
+    try {
+      promise.resolve(ThemePreferences.getMode(reactApplicationContext))
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not read the theme preference.", error)
+      promise.reject("THEME_READ_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun setThemeMode(mode: String, promise: Promise) {
+    try {
+      promise.resolve(ThemePreferences.setMode(reactApplicationContext, mode))
+    } catch (error: IllegalArgumentException) {
+      promise.reject("THEME_VALIDATION", error.message, error)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not save the theme preference.", error)
+      promise.reject("THEME_WRITE_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
   fun openFullScreenIntentSettings(promise: Promise) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
       promise.reject(

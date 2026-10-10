@@ -1,19 +1,35 @@
 import {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useAlarms} from '../alarms/AlarmsProvider';
 import {PrimaryButton} from '../components/PrimaryButton';
+import {TimeWheels} from '../components/TimeWheels';
 import {DEFAULT_HOUR, DEFAULT_MINUTE} from '../constants/alarm';
 import {spacing} from '../constants/theme';
 import {saveAlarm} from '../services/alarmService';
 import {useTheme} from '../theme/ThemeProvider';
-import {formatClock, from24Hour, to24Hour} from '../utils/time';
+import {formatClock, to24Hour} from '../utils/time';
+import {initialEditorSelection} from '../components/timePickerData';
 
-export function AlarmEditorScreen({alarm, onClose}) {
+export function AlarmEditorScreen() {
+  const route = useRoute();
+  const alarm = route.params?.alarm ?? null;
+  const session = alarm && alarm.id ? alarm.id : 'new';
+  return <AlarmEditorForm key={session} alarm={alarm} />;
+}
+
+function AlarmEditorForm({alarm}) {
+  const navigation = useNavigation();
+  const {reload} = useAlarms();
   const {colors} = useTheme();
   const insets = useSafeAreaInsets();
-  const initial = from24Hour(alarm ? alarm.hour : DEFAULT_HOUR);
+  const initial = initialEditorSelection(
+    alarm ? alarm.hour : DEFAULT_HOUR,
+    alarm ? alarm.minute : DEFAULT_MINUTE,
+  );
   const [hour12, setHour12] = useState(initial.hour12);
-  const [minute, setMinute] = useState(alarm ? alarm.minute : DEFAULT_MINUTE);
+  const [minute, setMinute] = useState(initial.minute);
   const [period, setPeriod] = useState(initial.period);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +47,15 @@ export function AlarmEditorScreen({alarm, onClose}) {
         vibrate: alarm ? alarm.vibrate : true,
         label: alarm ? alarm.label : 'Alarm',
       });
-      onClose();
+      try {
+        await reload();
+      } catch (refreshError) {
+        console.warn(
+          'The saved alarm could not be refreshed yet.',
+          refreshError.message || 'Unknown refresh failure.',
+        );
+      }
+      navigation.goBack();
     } catch (saveError) {
       setError(saveError.message || 'The alarm could not be saved.');
       setSaving(false);
@@ -48,47 +72,37 @@ export function AlarmEditorScreen({alarm, onClose}) {
           paddingBottom: insets.bottom + spacing.md,
         },
       ]}>
-      <Text style={[styles.kicker, {color: colors.accent}]}>WakeMind</Text>
-      <Text style={[styles.title, {color: colors.text}]}>
-        {alarm ? 'Edit alarm' : 'Add alarm'}
-      </Text>
-      <View style={styles.clockRow}>
-        <Stepper
-          label="Hour"
-          value={clock.hourText}
-          onDecrease={() =>
-            setHour12(current => (current === 1 ? 12 : current - 1))
-          }
-          onIncrease={() =>
-            setHour12(current => (current === 12 ? 1 : current + 1))
-          }
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled">
+        <Text style={[styles.kicker, {color: colors.accent}]}>WakeMind</Text>
+        <Text style={[styles.title, {color: colors.text}]}>
+          {alarm ? 'Edit alarm' : 'Add alarm'}
+        </Text>
+        <Text
+          accessibilityLabel={`Selected time ${clock.hourText}:${clock.minuteText} ${clock.period}`}
+          style={[styles.readout, {color: colors.text}]}>
+          {clock.hourText}:{clock.minuteText}
+          <Text style={[styles.readoutPeriod, {color: colors.muted}]}>
+            {' '}
+            {clock.period}
+          </Text>
+        </Text>
+        <TimeWheels
+          hour12={hour12}
+          minute={minute}
+          period={period}
+          onHourChange={setHour12}
+          onMinuteChange={setMinute}
+          onPeriodChange={setPeriod}
         />
-        <Text style={[styles.colon, {color: colors.text}]}>:</Text>
-        <Stepper
-          label="Minute"
-          value={clock.minuteText}
-          onDecrease={() => setMinute(current => (current === 0 ? 59 : current - 1))}
-          onIncrease={() => setMinute(current => (current === 59 ? 0 : current + 1))}
-        />
-      </View>
-      <View style={styles.periodRow}>
-        <PeriodButton
-          label="AM"
-          selected={period === 'AM'}
-          onPress={() => setPeriod('AM')}
-        />
-        <PeriodButton
-          label="PM"
-          selected={period === 'PM'}
-          onPress={() => setPeriod('PM')}
-        />
-      </View>
-      <Text style={[styles.hint, {color: colors.muted}]}>
-        This is a one-time alarm. It rings once, then turns off.
-      </Text>
-      {error ? (
-        <Text style={[styles.error, {color: colors.error}]}>{error}</Text>
-      ) : null}
+        <Text style={[styles.hint, {color: colors.muted}]}>
+          This is a one-time alarm. It rings once, then turns off.
+        </Text>
+        {error ? (
+          <Text style={[styles.error, {color: colors.error}]}>{error}</Text>
+        ) : null}
+      </ScrollView>
       <View style={styles.footer}>
         <PrimaryButton
           label={saving ? 'Saving…' : 'Save alarm'}
@@ -97,7 +111,8 @@ export function AlarmEditorScreen({alarm, onClose}) {
         />
         <Pressable
           accessibilityRole="button"
-          onPress={onClose}
+          accessibilityLabel="Cancel"
+          onPress={() => navigation.goBack()}
           style={styles.cancel}>
           <Text style={[styles.cancelText, {color: colors.muted}]}>Cancel</Text>
         </Pressable>
@@ -106,58 +121,14 @@ export function AlarmEditorScreen({alarm, onClose}) {
   );
 }
 
-function Stepper({label, value, onDecrease, onIncrease}) {
-  const {colors} = useTheme();
-  return (
-    <View style={styles.stepper}>
-      <Text style={[styles.stepperLabel, {color: colors.muted}]}>{label}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Decrease ${label}`}
-        onPress={onDecrease}
-        style={[styles.step, {backgroundColor: colors.surfaceRaised}]}>
-        <Text style={[styles.stepText, {color: colors.text}]}>−</Text>
-      </Pressable>
-      <Text style={[styles.stepValue, {color: colors.text}]}>{value}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Increase ${label}`}
-        onPress={onIncrease}
-        style={[styles.step, {backgroundColor: colors.surfaceRaised}]}>
-        <Text style={[styles.stepText, {color: colors.text}]}>+</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function PeriodButton({label, selected, onPress}) {
-  const {colors} = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={[
-        styles.period,
-        {
-          borderColor: selected ? colors.accent : colors.line,
-          backgroundColor: selected ? colors.accent : colors.background,
-        },
-      ]}>
-      <Text
-        style={[
-          styles.periodText,
-          {color: selected ? colors.accentText : colors.text},
-        ]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  content: {
+    flexGrow: 1,
+    paddingBottom: spacing.md,
   },
   kicker: {
     fontSize: 13,
@@ -170,56 +141,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: spacing.sm,
   },
-  clockRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.xl,
-  },
-  colon: {
-    fontSize: 48,
+  readout: {
+    fontSize: 40,
+    fontVariant: ['tabular-nums'],
     fontWeight: '700',
-    marginHorizontal: spacing.sm,
-  },
-  stepper: {
-    alignItems: 'center',
-  },
-  stepperLabel: {
-    fontSize: 13,
-    marginBottom: spacing.sm,
-  },
-  step: {
-    alignItems: 'center',
-    borderRadius: 12,
-    height: 44,
-    justifyContent: 'center',
-    width: 72,
-  },
-  stepText: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  stepValue: {
-    fontSize: 56,
-    fontWeight: '700',
-    marginVertical: spacing.sm,
-  },
-  periodRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
     marginTop: spacing.lg,
-  },
-  period: {
-    borderRadius: 12,
-    borderWidth: 1,
-    marginHorizontal: spacing.sm,
-    minWidth: 88,
-    paddingVertical: spacing.md,
-  },
-  periodText: {
-    fontSize: 16,
-    fontWeight: '700',
     textAlign: 'center',
+  },
+  readoutPeriod: {
+    fontSize: 18,
   },
   hint: {
     fontSize: 14,
@@ -234,12 +164,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footer: {
-    marginTop: 'auto',
+    paddingTop: spacing.sm,
   },
   cancel: {
     alignItems: 'center',
-    minHeight: 48,
     justifyContent: 'center',
+    minHeight: 48,
   },
   cancelText: {
     fontSize: 16,

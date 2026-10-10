@@ -1,15 +1,17 @@
-import {useState} from 'react';
 import {ActivityIndicator, StatusBar, StyleSheet, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
-import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
-import {HomeScreen} from '../screens/HomeScreen';
+import {AlarmsProvider} from '../alarms/AlarmsProvider';
+import {boot} from '../constants/theme';
+import {RootNavigator} from '../navigation/RootNavigator';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <Root />
+        <AlarmsProvider>
+          <Root />
+        </AlarmsProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );
@@ -17,12 +19,13 @@ export default function App() {
 
 function Root() {
   const theme = useTheme();
-  const [screen, setScreen] = useState({name: 'home'});
 
-  if (!theme.ready) {
+  if (!theme.ready || !theme.colors) {
     return (
-      <View accessibilityLabel="Loading" style={styles.boot}>
-        <ActivityIndicator />
+      <View
+        accessibilityLabel="Loading"
+        style={[styles.boot, {backgroundColor: boot.background}]}>
+        <ActivityIndicator color={boot.indicator} />
       </View>
     );
   }
@@ -33,17 +36,7 @@ function Root() {
         barStyle={theme.statusBarStyle}
         backgroundColor={theme.colors.background}
       />
-      {screen.name === 'editor' ? (
-        <AlarmEditorScreen
-          alarm={screen.alarm}
-          onClose={() => setScreen({name: 'home'})}
-        />
-      ) : (
-        <HomeScreen
-          onAdd={() => setScreen({name: 'editor', alarm: null})}
-          onEdit={alarm => setScreen({name: 'editor', alarm})}
-        />
-      )}
+      <RootNavigator />
     </View>
   );
 }

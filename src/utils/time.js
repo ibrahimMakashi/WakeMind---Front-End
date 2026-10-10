@@ -55,6 +55,56 @@ export function relativeDayLabel(triggerAtMillis, now = Date.now()) {
   return trigger.toLocaleDateString(undefined, {weekday: 'long'});
 }
 
+function finiteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : Number.POSITIVE_INFINITY;
+}
+
+function clockMinutes(alarm) {
+  const hour = finiteNumber(alarm.hour);
+  const minute = finiteNumber(alarm.minute);
+  if (hour === Number.POSITIVE_INFINITY || minute === Number.POSITIVE_INFINITY) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return hour * 60 + minute;
+}
+
+function compareId(left, right) {
+  return String(left.id == null ? '' : left.id).localeCompare(
+    String(right.id == null ? '' : right.id),
+  );
+}
+
+export function sortAlarms(alarms) {
+  const source = Array.isArray(alarms) ? alarms : [];
+  return source.slice().sort((left, right) => {
+    const leftEnabled = Boolean(left.enabled);
+    const rightEnabled = Boolean(right.enabled);
+    if (leftEnabled !== rightEnabled) {
+      return leftEnabled ? -1 : 1;
+    }
+    if (leftEnabled) {
+      const byTrigger =
+        finiteNumber(left.triggerAtMillis) - finiteNumber(right.triggerAtMillis);
+      if (byTrigger !== 0) {
+        return byTrigger;
+      }
+    } else {
+      const byClock = clockMinutes(left) - clockMinutes(right);
+      if (byClock !== 0) {
+        return byClock;
+      }
+    }
+    const byCreated =
+      finiteNumber(left.createdAtMillis) - finiteNumber(right.createdAtMillis);
+    if (byCreated !== 0) {
+      return byCreated;
+    }
+    return compareId(left, right);
+  });
+}
+
 export function nextAlarm(alarms, now = Date.now()) {
   const upcoming = alarms
     .filter(alarm => alarm.enabled && alarm.triggerAtMillis > now)
