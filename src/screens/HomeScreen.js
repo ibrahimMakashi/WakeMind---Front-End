@@ -13,7 +13,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AlarmCard} from '../components/AlarmCard';
 import {PrimaryButton} from '../components/PrimaryButton';
 import {TEST_ALARM_OFFSET_SECONDS} from '../constants/alarm';
-import {colors, spacing} from '../constants/theme';
+import {spacing} from '../constants/theme';
 import {
   deleteAlarm,
   getAlarms,
@@ -23,9 +23,11 @@ import {
   scheduleTestAlarm,
   setAlarmEnabled,
 } from '../services/alarmService';
+import {useTheme} from '../theme/ThemeProvider';
 import {formatClock, nextAlarm, relativeDayLabel} from '../utils/time';
 
 export function HomeScreen({onAdd, onEdit}) {
+  const {colors} = useTheme();
   const insets = useSafeAreaInsets();
   const [alarms, setAlarms] = useState([]);
   const [capability, setCapability] = useState(null);
@@ -98,14 +100,21 @@ export function HomeScreen({onAdd, onEdit}) {
     <ScrollView
       contentContainerStyle={[
         styles.content,
-        {paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg},
+        {
+          paddingTop: insets.top + spacing.lg,
+          paddingBottom: insets.bottom + spacing.lg,
+        },
       ]}
-      style={styles.screen}>
-      <Text style={styles.kicker}>WakeMind</Text>
-      <Text style={styles.heading}>Next alarm</Text>
+      style={[styles.screen, {backgroundColor: colors.background}]}>
+      <Text style={[styles.kicker, {color: colors.accent}]}>WakeMind</Text>
+      <Text style={[styles.heading, {color: colors.muted}]}>Next alarm</Text>
       <NextAlarm alarm={upcoming} />
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {message ? (
+        <Text style={[styles.message, {color: colors.success}]}>{message}</Text>
+      ) : null}
+      {error ? (
+        <Text style={[styles.message, {color: colors.error}]}>{error}</Text>
+      ) : null}
       <CapabilityNotices capability={capability} disabled={busy} />
       <View style={styles.actions}>
         <PrimaryButton
@@ -122,9 +131,9 @@ export function HomeScreen({onAdd, onEdit}) {
         <View style={styles.gap} />
         <PrimaryButton label="Add Alarm" disabled={busy} onPress={onAdd} />
       </View>
-      <Text style={styles.section}>My alarms</Text>
+      <Text style={[styles.section, {color: colors.muted}]}>My alarms</Text>
       {alarms.length === 0 ? (
-        <Text style={styles.empty}>No alarms yet.</Text>
+        <Text style={[styles.empty, {color: colors.muted}]}>No alarms yet.</Text>
       ) : (
         alarms.map(alarm => (
           <AlarmCard
@@ -142,21 +151,29 @@ export function HomeScreen({onAdd, onEdit}) {
 }
 
 function NextAlarm({alarm}) {
+  const {colors} = useTheme();
   if (!alarm) {
     return (
       <View style={styles.nextCard}>
-        <Text style={styles.nextEmpty}>No upcoming alarm</Text>
+        <Text style={[styles.nextEmpty, {color: colors.text}]}>
+          No upcoming alarm
+        </Text>
       </View>
     );
   }
   const clock = formatClock(alarm.hour, alarm.minute);
   return (
     <View style={styles.nextCard}>
-      <Text style={styles.nextTime}>
+      <Text style={[styles.nextTime, {color: colors.text}]}>
         {clock.hourText}:{clock.minuteText}
-        <Text style={styles.nextPeriod}> {clock.period}</Text>
+        <Text style={[styles.nextPeriod, {color: colors.muted}]}>
+          {' '}
+          {clock.period}
+        </Text>
       </Text>
-      <Text style={styles.nextDay}>{relativeDayLabel(alarm.triggerAtMillis)}</Text>
+      <Text style={[styles.nextDay, {color: colors.muted}]}>
+        {relativeDayLabel(alarm.triggerAtMillis)}
+      </Text>
     </View>
   );
 }
@@ -194,12 +211,18 @@ function CapabilityNotices({capability, disabled}) {
 }
 
 function Notice({text, actionLabel, onPress, disabled}) {
+  const {colors} = useTheme();
   return (
-    <View style={styles.notice}>
-      <Text style={styles.noticeText}>{text}</Text>
+    <View style={[styles.notice, {backgroundColor: colors.surface}]}>
+      <Text style={[styles.noticeText, {color: colors.text}]}>{text}</Text>
       {actionLabel ? (
-        <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress}>
-          <Text style={styles.noticeAction}>{actionLabel}</Text>
+        <Pressable
+          accessibilityRole="button"
+          disabled={disabled}
+          onPress={onPress}>
+          <Text style={[styles.noticeAction, {color: colors.accent}]}>
+            {actionLabel}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -208,21 +231,18 @@ function Notice({text, actionLabel, onPress, disabled}) {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.background,
     flex: 1,
   },
   content: {
     paddingHorizontal: spacing.lg,
   },
   kicker: {
-    color: colors.accent,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   heading: {
-    color: colors.muted,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -233,35 +253,24 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   nextTime: {
-    color: colors.text,
     fontSize: 64,
     fontWeight: '700',
     letterSpacing: -2,
   },
   nextPeriod: {
-    color: colors.muted,
     fontSize: 22,
     letterSpacing: 0,
   },
   nextDay: {
-    color: colors.muted,
     fontSize: 18,
     marginTop: spacing.xs,
   },
   nextEmpty: {
-    color: colors.text,
     fontSize: 28,
     fontWeight: '700',
     marginTop: spacing.sm,
   },
   message: {
-    color: colors.success,
-    fontSize: 15,
-    lineHeight: 21,
-    marginTop: spacing.md,
-  },
-  error: {
-    color: colors.danger,
     fontSize: 15,
     lineHeight: 21,
     marginTop: spacing.md,
@@ -273,7 +282,6 @@ const styles = StyleSheet.create({
     height: spacing.sm,
   },
   section: {
-    color: colors.muted,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -282,22 +290,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   empty: {
-    color: colors.muted,
     fontSize: 16,
   },
   notice: {
-    backgroundColor: colors.surface,
     borderRadius: 14,
     marginTop: spacing.md,
     padding: spacing.md,
   },
   noticeText: {
-    color: colors.text,
     fontSize: 14,
     lineHeight: 20,
   },
   noticeAction: {
-    color: colors.accent,
     fontSize: 15,
     fontWeight: '700',
     marginTop: spacing.sm,

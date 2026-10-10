@@ -1,20 +1,44 @@
-export const colors = {
-  background: '#10141A',
-  surface: '#1A212B',
-  surfaceRaised: '#243140',
-  text: '#F3F0E8',
-  muted: '#9AA3B2',
-  accent: '#C6A15B',
-  accentText: '#1A1408',
-  danger: '#D4654F',
-  line: '#2C3642',
-  success: '#8EAE96',
-};
-
 export const spacing = {
   xs: 4,
   sm: 8,
   md: 16,
   lg: 24,
   xl: 32,
+};
+
+export const palettes = {
+  light: {
+    background: '#F4EFE6',
+    surface: '#FFFCF8',
+    surfaceRaised: '#EBE3D6',
+    text: '#1C1916',
+    muted: '#6F675F',
+    accent: '#44507A',
+    accentText: '#F8F5F0',
+    danger: '#A33B32',
+    error: '#A33B32',
+    warning: '#8A5A12',
+    success: '#2F6B4F',
+    line: '#E3DACD',
+    divider: '#E3DACD',
+    disabled: '#A39E96',
+    overlay: 'rgba(28, 25, 22, 0.08)',
+  },
+  dark: {
+    background: '#14161C',
+    surface: '#1C1F28',
+    surfaceRaised: '#262A34',
+    text: '#F4F1EA',
+    muted: '#A8A297',
+    accent: '#CDBFEA',
+    accentText: '#221C2E',
+    danger: '#E38B7C',
+    error: '#E38B7C',
+    warning: '#E2C07A',
+    success: '#9DC4AA',
+    line: '#323643',
+    divider: '#323643',
+    disabled: '#6E6A64',
+    overlay: 'rgba(0, 0, 0, 0.32)',
+  },
 };

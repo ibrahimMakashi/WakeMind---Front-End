@@ -1,5 +1,6 @@
 import {Pressable, StyleSheet, Text} from 'react-native';
-import {colors, spacing} from '../constants/theme';
+import {spacing} from '../constants/theme';
+import {useTheme} from '../theme/ThemeProvider';
 
 export function PrimaryButton({
   label,
@@ -7,8 +8,9 @@ export function PrimaryButton({
   disabled = false,
   tone = 'accent',
 }) {
-  const toneStyle = tone === 'danger' ? styles.danger : styles.accent;
-  const textStyle = tone === 'danger' ? styles.dangerText : styles.accentText;
+  const {colors} = useTheme();
+  const backgroundColor = tone === 'danger' ? colors.danger : colors.accent;
+  const textColor = tone === 'danger' ? colors.text : colors.accentText;
   return (
     <Pressable
       accessibilityRole="button"
@@ -16,11 +18,11 @@ export function PrimaryButton({
       onPress={onPress}
       style={({pressed}) => [
         styles.button,
-        toneStyle,
+        {backgroundColor},
         disabled && styles.disabled,
         pressed && !disabled && styles.pressed,
       ]}>
-      <Text style={[styles.label, textStyle]}>{label}</Text>
+      <Text style={[styles.label, {color: textColor}]}>{label}</Text>
     </Pressable>
   );
 }
@@ -32,18 +34,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 52,
     paddingHorizontal: spacing.lg,
-  },
-  accent: {
-    backgroundColor: colors.accent,
-  },
-  danger: {
-    backgroundColor: colors.danger,
-  },
-  accentText: {
-    color: colors.accentText,
-  },
-  dangerText: {
-    color: colors.text,
   },
   label: {
     fontSize: 16,

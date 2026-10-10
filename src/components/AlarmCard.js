@@ -1,17 +1,25 @@
 import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
-import {colors, spacing} from '../constants/theme';
+import {spacing} from '../constants/theme';
+import {useTheme} from '../theme/ThemeProvider';
 import {difficultyLabel, formatClock, repeatLabel} from '../utils/time';
 
 export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
+  const {colors} = useTheme();
   const clock = formatClock(alarm.hour, alarm.minute);
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        {backgroundColor: colors.surface, borderColor: colors.line},
+      ]}>
       <View style={styles.topRow}>
         <View style={styles.timeBlock}>
-          <Text style={styles.time}>
+          <Text style={[styles.time, {color: colors.text}]}>
             {clock.hourText}:{clock.minuteText}
           </Text>
-          <Text style={styles.period}>{clock.period}</Text>
+          <Text style={[styles.period, {color: colors.muted}]}>
+            {clock.period}
+          </Text>
         </View>
         <Switch
           accessibilityLabel={
@@ -24,10 +32,10 @@ export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
           thumbColor={colors.text}
         />
       </View>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, {color: colors.muted}]}>
         {repeatLabel(alarm.repeat)} · {difficultyLabel(alarm.difficulty)}
       </Text>
-      <Text style={styles.meta}>
+      <Text style={[styles.meta, {color: colors.muted}]}>
         {alarm.label} · Sound · {alarm.vibrate ? 'Vibrate' : 'Silent'}
       </Text>
       <View style={styles.actions}>
@@ -36,14 +44,16 @@ export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
           disabled={disabled}
           onPress={onEdit}
           style={styles.action}>
-          <Text style={styles.actionText}>Edit</Text>
+          <Text style={[styles.actionText, {color: colors.accent}]}>Edit</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           disabled={disabled}
           onPress={onDelete}
           style={styles.action}>
-          <Text style={styles.deleteText}>Delete</Text>
+          <Text style={[styles.actionText, {color: colors.danger}]}>
+            Delete
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -52,8 +62,6 @@ export function AlarmCard({alarm, onToggle, onEdit, onDelete, disabled}) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
     borderRadius: 18,
     borderWidth: 1,
     marginBottom: spacing.md,
@@ -69,20 +77,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   time: {
-    color: colors.text,
     fontSize: 40,
     fontWeight: '700',
     letterSpacing: -1,
   },
   period: {
-    color: colors.muted,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
     marginLeft: spacing.sm,
   },
   meta: {
-    color: colors.muted,
     fontSize: 14,
     marginTop: spacing.xs,
   },
@@ -96,12 +101,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  deleteText: {
-    color: colors.danger,
     fontSize: 15,
     fontWeight: '700',
   },

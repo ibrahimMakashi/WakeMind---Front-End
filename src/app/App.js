@@ -1,15 +1,38 @@
 import {useState} from 'react';
-import {StatusBar} from 'react-native';
+import {ActivityIndicator, StatusBar, StyleSheet, View} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
 import {HomeScreen} from '../screens/HomeScreen';
+import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 
 export default function App() {
-  const [screen, setScreen] = useState({name: 'home'});
-
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="light-content" backgroundColor="#10141A" />
+      <ThemeProvider>
+        <Root />
+      </ThemeProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function Root() {
+  const theme = useTheme();
+  const [screen, setScreen] = useState({name: 'home'});
+
+  if (!theme.ready) {
+    return (
+      <View accessibilityLabel="Loading" style={styles.boot}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.shell, {backgroundColor: theme.colors.background}]}>
+      <StatusBar
+        barStyle={theme.statusBarStyle}
+        backgroundColor={theme.colors.background}
+      />
       {screen.name === 'editor' ? (
         <AlarmEditorScreen
           alarm={screen.alarm}
@@ -21,6 +44,17 @@ export default function App() {
           onEdit={alarm => setScreen({name: 'editor', alarm})}
         />
       )}
-    </SafeAreaProvider>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  boot: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  shell: {
+    flex: 1,
+  },
+});
