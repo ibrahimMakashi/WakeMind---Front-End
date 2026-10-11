@@ -1,11 +1,13 @@
 import {
   difficultyLabel,
+  formatAlarmListTime,
   formatClock,
   from24Hour,
   nextAlarm,
   relativeDayLabel,
   repeatLabel,
   sortAlarms,
+  soundLabel,
   to24Hour,
 } from './time';
 
@@ -64,73 +66,57 @@ test('chooses the soonest enabled alarm', () => {
   expect(nextAlarm([], now)).toBeNull();
 });
 
-test('sorts enabled alarms by the next trigger, then creation, then id', () => {
+test('formats the alarm list without a leading hour or a space before the period', () => {
+  expect(formatAlarmListTime(5, 15)).toBe('5:15AM');
+  expect(formatAlarmListTime(0, 0)).toBe('12:00AM');
+  expect(formatAlarmListTime(12, 0)).toBe('12:00PM');
+  expect(formatAlarmListTime(18, 30)).toBe('6:30PM');
+});
+
+test('sorts enabled and disabled alarms together by clock time', () => {
   const alarms = [
-    {id: 'b', enabled: true, hour: 9, minute: 0, triggerAtMillis: 300, createdAtMillis: 2},
-    {id: 'a', enabled: true, hour: 8, minute: 0, triggerAtMillis: 100, createdAtMillis: 9},
-    {id: 'd', enabled: true, hour: 1, minute: 0, triggerAtMillis: 300, createdAtMillis: 2},
-    {id: 'c', enabled: true, hour: 2, minute: 0, triggerAtMillis: 300, createdAtMillis: 1},
-    {id: 'e', enabled: true, hour: 3, minute: 0, triggerAtMillis: Number.NaN, createdAtMillis: 0},
+    {id: 'late-on', enabled: true, hour: 20, minute: 0, createdAtMillis: 1, triggerAtMillis: 1},
+    {id: 'early-off', enabled: false, hour: 5, minute: 15, createdAtMillis: 9, triggerAtMillis: 99},
+    {id: 'mid-on', enabled: true, hour: 7, minute: 45, createdAtMillis: 3, triggerAtMillis: 2},
+    {id: 'mid-off', enabled: false, hour: 7, minute: 0, createdAtMillis: 2, triggerAtMillis: 50},
   ];
   expect(sortAlarms(alarms).map(alarm => alarm.id)).toEqual([
-    'a',
-    'c',
-    'b',
-    'd',
-    'e',
+    'early-off',
+    'mid-off',
+    'mid-on',
+    'late-on',
   ]);
 });
 
-test('sorts disabled alarms by clock time below enabled alarms', () => {
+test('does not move an alarm when only its enabled state changes', () => {
   const alarms = [
-    {
-      id: 'enabled-later',
-      enabled: true,
-      hour: 23,
-      minute: 0,
-      triggerAtMillis: 9_000,
-      createdAtMillis: 1,
-    },
-    {
-      id: 'disabled-evening',
-      enabled: false,
-      hour: 18,
-      minute: 15,
-      triggerAtMillis: 100,
-      createdAtMillis: 1,
-    },
-    {
-      id: 'disabled-morning',
-      enabled: false,
-      hour: 6,
-      minute: 30,
-      triggerAtMillis: 50_000,
-      createdAtMillis: 8,
-    },
-    {
-      id: 'disabled-same-later-id',
-      enabled: false,
-      hour: 6,
-      minute: 30,
-      triggerAtMillis: 1,
-      createdAtMillis: 4,
-    },
-    {
-      id: 'disabled-same-earlier-id',
-      enabled: false,
-      hour: 6,
-      minute: 30,
-      triggerAtMillis: 1,
-      createdAtMillis: 4,
-    },
+    {id: 'b', enabled: false, hour: 8, minute: 0, createdAtMillis: 2},
+    {id: 'a', enabled: true, hour: 6, minute: 30, createdAtMillis: 1},
   ];
-  expect(sortAlarms(alarms).map(alarm => alarm.id)).toEqual([
-    'enabled-later',
-    'disabled-same-earlier-id',
-    'disabled-same-later-id',
-    'disabled-morning',
-    'disabled-evening',
-  ]);
+  const toggled = alarms.map(alarm => ({...alarm, enabled: !alarm.enabled}));
+  expect(sortAlarms(alarms).map(alarm => alarm.id)).toEqual(['a', 'b']);
+  expect(sortAlarms(toggled).map(alarm => alarm.id)).toEqual(['a', 'b']);
+});
+
+test('moves an alarm after its clock time changes', () => {
+  const before = [
+    {id: 'a', enabled: false, hour: 5, minute: 0, createdAtMillis: 1},
+    {id: 'b', enabled: true, hour: 7, minute: 0, createdAtMillis: 2},
+  ];
+  const edited = before.map(alarm =>
+    alarm.id === 'a' ? {...alarm, hour: 9, minute: 0} : alarm,
+  );
+  expect(sortAlarms(before).map(alarm => alarm.id)).toEqual(['a', 'b']);
+  expect(sortAlarms(edited).map(alarm => alarm.id)).toEqual(['b', 'a']);
+});
+
+test('breaks identical clock times by creation time, then id', () => {
+  const alarms = [
+    {id: 'c', enabled: true, hour: 6, minute: 30, createdAtMillis: 5},
+    {id: 'b', enabled: false, hour: 6, minute: 30, createdAtMillis: 2},
+    {id: 'a', enabled: true, hour: 6, minute: 30, createdAtMillis: 2},
+  ];
+  expect(sortAlarms(alarms).map(alarm => alarm.id)).toEqual(['a', 'b', 'c']);
 });
 
 test('does not mutate the alarm array it sorts', () => {
@@ -144,7 +130,9 @@ test('does not mutate the alarm array it sorts', () => {
   expect(sortAlarms(null)).toEqual([]);
 });
 
-test('labels known schedule and difficulty values', () => {
+test('labels known schedule, difficulty, and sound values', () => {
   expect(repeatLabel('once')).toBe('Once');
   expect(difficultyLabel('easy')).toBe('Easy');
+  expect(soundLabel('system-alarm')).toBe('System alarm');
+  expect(soundLabel('')).toBe('System alarm');
 });

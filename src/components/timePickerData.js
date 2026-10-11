@@ -3,7 +3,7 @@ import {from24Hour} from '../utils/time';
 export function hourPickerItems() {
   return Array.from({length: 12}, (_, index) => {
     const value = index + 1;
-    return {value, label: String(value).padStart(2, '0')};
+    return {value, label: String(value)};
   });
 }
 

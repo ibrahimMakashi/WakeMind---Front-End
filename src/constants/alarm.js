@@ -4,3 +4,4 @@ export const DEFAULT_MINUTE = 30;
 export const REPEAT_ONCE = 'once';
 export const DIFFICULTY_EASY = 'easy';
 export const SOUND_SYSTEM_ALARM = 'system-alarm';
+export const MAX_LABEL_LENGTH = 80;

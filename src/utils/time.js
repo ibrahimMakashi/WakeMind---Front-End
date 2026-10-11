@@ -6,6 +6,11 @@ const DIFFICULTY_LABELS = {
   easy: 'Easy',
 };
 
+export function formatAlarmListTime(hour, minute) {
+  const clock = formatClock(hour, minute);
+  return `${Number(clock.hourText)}:${clock.minuteText}${clock.period}`;
+}
+
 export function formatClock(hour, minute) {
   const period = hour >= 12 ? 'PM' : 'AM';
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
@@ -32,6 +37,13 @@ export function from24Hour(hour24) {
 
 export function repeatLabel(repeat) {
   return REPEAT_LABELS[repeat] || repeat;
+}
+
+export function soundLabel(sound) {
+  if (!sound || sound === 'system-alarm') {
+    return 'System alarm';
+  }
+  return sound;
 }
 
 export function difficultyLabel(difficulty) {
@@ -79,22 +91,9 @@ function compareId(left, right) {
 export function sortAlarms(alarms) {
   const source = Array.isArray(alarms) ? alarms : [];
   return source.slice().sort((left, right) => {
-    const leftEnabled = Boolean(left.enabled);
-    const rightEnabled = Boolean(right.enabled);
-    if (leftEnabled !== rightEnabled) {
-      return leftEnabled ? -1 : 1;
-    }
-    if (leftEnabled) {
-      const byTrigger =
-        finiteNumber(left.triggerAtMillis) - finiteNumber(right.triggerAtMillis);
-      if (byTrigger !== 0) {
-        return byTrigger;
-      }
-    } else {
-      const byClock = clockMinutes(left) - clockMinutes(right);
-      if (byClock !== 0) {
-        return byClock;
-      }
+    const byClock = clockMinutes(left) - clockMinutes(right);
+    if (byClock !== 0) {
+      return byClock;
     }
     const byCreated =
       finiteNumber(left.createdAtMillis) - finiteNumber(right.createdAtMillis);

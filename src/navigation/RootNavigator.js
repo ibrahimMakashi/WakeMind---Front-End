@@ -86,8 +86,8 @@ function MainTabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.line,
+          backgroundColor: colors.background,
+          borderTopColor: colors.divider,
         },
         tabBarLabelStyle: styles.label,
         tabBarItemStyle: styles.item,

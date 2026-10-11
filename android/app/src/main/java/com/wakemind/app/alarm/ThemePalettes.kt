@@ -29,12 +29,12 @@ internal object ThemePalettes {
 
   private val dark =
       ThemePalette(
-          background = 0xFF14161C.toInt(),
-          text = 0xFFF4F1EA.toInt(),
-          muted = 0xFFA8A297.toInt(),
-          accent = 0xFFCDBFEA.toInt(),
-          stop = 0xFFE38B7C.toInt(),
-          stopText = 0xFF221C2E.toInt(),
+          background = 0xFF000000.toInt(),
+          text = 0xFFF5F5F7.toInt(),
+          muted = 0xFF8E8E93.toInt(),
+          accent = 0xFFFF9F0A.toInt(),
+          stop = 0xFFFF453A.toInt(),
+          stopText = 0xFFFFFFFF.toInt(),
       )
 
   fun resolve(context: Context): ThemePalette {

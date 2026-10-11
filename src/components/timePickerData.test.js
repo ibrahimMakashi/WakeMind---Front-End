@@ -7,11 +7,11 @@ import {
 } from './timePickerData';
 import {to24Hour} from '../utils/time';
 
-test('builds padded hour, minute, and period columns', () => {
+test('builds hour, minute, and period columns', () => {
   const hours = hourPickerItems();
   const minutes = minutePickerItems();
   expect(hours).toHaveLength(12);
-  expect(hours[0]).toEqual({value: 1, label: '01'});
+  expect(hours[0]).toEqual({value: 1, label: '1'});
   expect(hours[11]).toEqual({value: 12, label: '12'});
   expect(minutes).toHaveLength(60);
   expect(minutes[0]).toEqual({value: 0, label: '00'});
@@ -47,7 +47,7 @@ test('initializes the editor from a saved 24-hour time', () => {
   expect(to24Hour(12, 'PM')).toBe(12);
 });
 
-test('ignores picker events until the wheel is ready', () => {
+test('ignores picker events until the user touches the wheel', () => {
   expect(shouldCommitPickerValue(false, 1, 6)).toBe(false);
   expect(shouldCommitPickerValue(true, 6, 6)).toBe(false);
   expect(shouldCommitPickerValue(true, null, 6)).toBe(false);

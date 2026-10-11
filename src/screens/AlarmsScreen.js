@@ -1,12 +1,12 @@
 import {useCallback, useMemo, useState} from 'react';
-import {FlatList, StyleSheet, Text, View} from 'react-native';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
 import {AlarmCard} from '../components/AlarmCard';
-import {PrimaryButton} from '../components/PrimaryButton';
+import {AppIcon} from '../components/AppIcon';
 import {spacing} from '../constants/theme';
-import {deleteAlarm, setAlarmEnabled} from '../services/alarmService';
+import {setAlarmEnabled} from '../services/alarmService';
 import {useTheme} from '../theme/ThemeProvider';
 import {sortAlarms} from '../utils/time';
 
@@ -42,83 +42,98 @@ export function AlarmsScreen() {
   }
 
   return (
-    <FlatList
-      data={orderedAlarms}
-      extraData={busy}
-      keyExtractor={alarm => alarm.id}
-      style={[styles.screen, {backgroundColor: colors.background}]}
-      contentContainerStyle={[
-        styles.content,
-        {paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl},
-      ]}
-      ListHeaderComponent={
-        <View>
-          <Text style={[styles.kicker, {color: colors.accent}]}>WakeMind</Text>
-          <Text style={[styles.title, {color: colors.text}]}>Alarms</Text>
-          {error || loadError ? (
-            <Text style={[styles.error, {color: colors.error}]}>
-              {error || loadError}
-            </Text>
-          ) : null}
-          <View style={styles.add}>
-            <PrimaryButton
-              label="Add Alarm"
-              disabled={busy}
-              onPress={() => navigation.navigate('Editor', {alarm: null})}
-            />
-          </View>
-        </View>
-      }
-      ListEmptyComponent={
-        <Text style={[styles.empty, {color: colors.muted}]}>
-          No alarms yet. Add one to choose a time.
-        </Text>
-      }
-      renderItem={({item}) => (
-        <AlarmCard
-          alarm={item}
+    <View style={[styles.screen, {backgroundColor: colors.background}]}>
+      <View style={[styles.header, {paddingTop: insets.top + spacing.sm}]}>
+        <View style={styles.headerSide} />
+        <Text style={[styles.title, {color: colors.text}]}>Alarms</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add alarm"
           disabled={busy}
-          onToggle={enabled =>
-            runAction(() => setAlarmEnabled(item.id, enabled))
-          }
-          onEdit={() => navigation.navigate('Editor', {alarm: item})}
-          onDelete={() => runAction(() => deleteAlarm(item.id))}
-        />
-      )}
-    />
+          onPress={() => navigation.navigate('Editor', {alarm: null})}
+          style={[styles.add, {backgroundColor: colors.surfaceRaised}]}>
+          <AppIcon name="plus" color={colors.text} size={22} />
+        </Pressable>
+      </View>
+      {error || loadError ? (
+        <Text style={[styles.error, {color: colors.error}]}>{error || loadError}</Text>
+      ) : null}
+      <FlatList
+        data={orderedAlarms}
+        extraData={busy}
+        keyExtractor={alarm => alarm.id}
+        style={styles.list}
+        contentContainerStyle={styles.content}
+        ItemSeparatorComponent={Separator}
+        ListEmptyComponent={
+          <Text style={[styles.empty, {color: colors.muted}]}>
+            No alarms yet. Add one to choose a time.
+          </Text>
+        }
+        renderItem={({item}) => (
+          <AlarmCard
+            alarm={item}
+            disabled={busy}
+            onToggle={enabled => runAction(() => setAlarmEnabled(item.id, enabled))}
+            onEdit={() => navigation.navigate('Editor', {alarm: item})}
+          />
+        )}
+      />
+    </View>
   );
+}
+
+function Separator() {
+  const {colors} = useTheme();
+  return <View style={[styles.separator, {backgroundColor: colors.divider}]} />;
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  content: {
-    flexGrow: 1,
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  kicker: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+  headerSide: {
+    width: 44,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginTop: spacing.sm,
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  add: {
+    alignItems: 'center',
+    borderRadius: 22,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   error: {
     fontSize: 15,
     lineHeight: 21,
-    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg,
   },
-  add: {
-    marginBottom: spacing.lg,
-    marginTop: spacing.lg,
+  list: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
   },
   empty: {
     fontSize: 16,
     lineHeight: 22,
+    marginTop: spacing.lg,
   },
 });

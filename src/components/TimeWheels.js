@@ -1,7 +1,6 @@
-import {useEffect, useRef} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import {useRef} from 'react';
+import {StyleSheet, View} from 'react-native';
 import WheelPicker from '@quidone/react-native-wheel-picker';
-import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 import {
   hourPickerItems,
@@ -11,56 +10,58 @@ import {
 } from './timePickerData';
 
 const ITEM_HEIGHT = 44;
-const READY_DELAY_MS = 350;
 const HOURS = hourPickerItems();
 const MINUTES = minutePickerItems();
 const PERIODS = periodPickerItems();
 
-export function TimeWheels({hour12, minute, period, onHourChange, onMinuteChange, onPeriodChange}) {
+export function TimeWheels({
+  hour12,
+  minute,
+  period,
+  onHourChange,
+  onMinuteChange,
+  onPeriodChange,
+}) {
   const {colors} = useTheme();
   return (
-    <View style={styles.row}>
-      <WheelColumn
-        label="Hour"
-        data={HOURS}
-        value={hour12}
-        onChange={onHourChange}
-        colors={colors}
+    <View style={styles.wheels}>
+      <View
+        pointerEvents="none"
+        style={[styles.band, {backgroundColor: colors.pickerBand}]}
       />
-      <WheelColumn
-        label="Minute"
-        data={MINUTES}
-        value={minute}
-        onChange={onMinuteChange}
-        colors={colors}
-      />
-      <WheelColumn
-        label="AM or PM"
-        data={PERIODS}
-        value={period}
-        onChange={onPeriodChange}
-        colors={colors}
-      />
+      <View style={styles.row}>
+        <WheelColumn
+          label="Hour"
+          data={HOURS}
+          value={hour12}
+          onChange={onHourChange}
+          textColor={colors.text}
+        />
+        <WheelColumn
+          label="Minute"
+          data={MINUTES}
+          value={minute}
+          onChange={onMinuteChange}
+          textColor={colors.text}
+        />
+        <WheelColumn
+          label="AM or PM"
+          data={PERIODS}
+          value={period}
+          onChange={onPeriodChange}
+          textColor={colors.text}
+        />
+      </View>
     </View>
   );
 }
 
-function WheelColumn({label, data, value, onChange, colors}) {
-  const readyRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      readyRef.current = true;
-    }, READY_DELAY_MS);
-    return () => {
-      clearTimeout(timer);
-      readyRef.current = false;
-    };
-  }, []);
+function WheelColumn({label, data, value, onChange, textColor}) {
+  const touchedRef = useRef(false);
 
   function onValueChanged(event) {
     const nextValue = event && event.item ? event.item.value : null;
-    if (shouldCommitPickerValue(readyRef.current, nextValue, value)) {
+    if (shouldCommitPickerValue(touchedRef.current, nextValue, value)) {
       onChange(nextValue);
     }
   }
@@ -68,8 +69,11 @@ function WheelColumn({label, data, value, onChange, colors}) {
   return (
     <View
       accessibilityLabel={label}
-      style={styles.column}>
-      <Text style={[styles.label, {color: colors.muted}]}>{label}</Text>
+      style={styles.column}
+      onStartShouldSetResponderCapture={() => {
+        touchedRef.current = true;
+        return false;
+      }}>
       <WheelPicker
         data={data}
         value={value}
@@ -78,42 +82,37 @@ function WheelColumn({label, data, value, onChange, colors}) {
         width="100%"
         enableScrollByTapOnItem
         disableIntervalMomentum
+        renderOverlay={null}
         onValueChanged={onValueChanged}
-        itemTextStyle={[styles.itemText, {color: colors.text}]}
-        overlayItemStyle={[
-          styles.overlay,
-          {borderColor: colors.line, backgroundColor: colors.surfaceRaised},
-        ]}
-        style={styles.picker}
+        itemTextStyle={[styles.itemText, {color: textColor}]}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wheels: {
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  band: {
+    borderRadius: 12,
+    height: ITEM_HEIGHT,
+    left: 0,
+    marginTop: -ITEM_HEIGHT / 2,
+    position: 'absolute',
+    right: 0,
+    top: '50%',
+  },
   row: {
     flexDirection: 'row',
-    marginTop: spacing.lg,
   },
   column: {
     flex: 1,
   },
-  label: {
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  picker: {
-    marginTop: spacing.xs,
-  },
   itemText: {
     fontSize: 22,
     fontVariant: ['tabular-nums'],
-    fontWeight: '700',
-  },
-  overlay: {
-    borderBottomWidth: 1,
-    borderTopWidth: 1,
-    opacity: 0.9,
+    fontWeight: '500',
   },
 });
