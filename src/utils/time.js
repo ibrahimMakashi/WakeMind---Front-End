@@ -11,6 +11,11 @@ export function formatAlarmListTime(hour, minute) {
   return `${Number(clock.hourText)}:${clock.minuteText}${clock.period}`;
 }
 
+export function formatEditorTime(hour, minute) {
+  const clock = formatClock(hour, minute);
+  return `${Number(clock.hourText)}:${clock.minuteText} ${clock.period}`;
+}
+
 export function formatClock(hour, minute) {
   const period = hour >= 12 ? 'PM' : 'AM';
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;

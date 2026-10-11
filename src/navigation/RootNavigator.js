@@ -67,7 +67,7 @@ export function RootNavigator() {
           component={AlarmEditorScreen}
           options={{
             animation: reducedMotion ? 'none' : 'slide_from_right',
-            animationDuration: motionDuration(reducedMotion, 220),
+            animationDuration: motionDuration(reducedMotion, 180),
           }}
         />
       </Stack.Navigator>

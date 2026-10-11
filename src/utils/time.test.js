@@ -1,6 +1,7 @@
 import {
   difficultyLabel,
   formatAlarmListTime,
+  formatEditorTime,
   formatClock,
   from24Hour,
   nextAlarm,
@@ -71,6 +72,12 @@ test('formats the alarm list without a leading hour or a space before the period
   expect(formatAlarmListTime(0, 0)).toBe('12:00AM');
   expect(formatAlarmListTime(12, 0)).toBe('12:00PM');
   expect(formatAlarmListTime(18, 30)).toBe('6:30PM');
+});
+
+test('formats editor time with a space before the period', () => {
+  expect(formatEditorTime(0, 0)).toBe('12:00 AM');
+  expect(formatEditorTime(12, 0)).toBe('12:00 PM');
+  expect(formatEditorTime(18, 30)).toBe('6:30 PM');
 });
 
 test('sorts enabled and disabled alarms together by clock time', () => {

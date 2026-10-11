@@ -17,6 +17,7 @@ import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.fragment.app.FragmentActivity
 
 class AlarmModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
@@ -148,6 +149,27 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     } catch (error: Exception) {
       Log.e(ALARM_LOG_TAG, "Could not open exact-alarm settings.", error)
       promise.reject("EXACT_ALARM_SETTINGS_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun showTimePicker(hour: Double, minute: Double, themeDark: Boolean, promise: Promise) {
+    val hour24 = hour.toInt()
+    val minuteValue = minute.toInt()
+    val activity = reactApplicationContext.currentActivity
+    if (activity !is FragmentActivity) {
+      promise.reject("TIME_PICKER_UNAVAILABLE", "The app activity is not available.")
+      return
+    }
+    activity.runOnUiThread {
+      try {
+        RadialTimePicker.show(activity, hour24, minuteValue, themeDark, promise)
+      } catch (error: IllegalArgumentException) {
+        promise.reject("TIME_PICKER_VALIDATION", error.message, error)
+      } catch (error: Exception) {
+        Log.e(ALARM_LOG_TAG, "Could not open the time picker.", error)
+        promise.reject("TIME_PICKER_FAILED", error.message, error)
+      }
     }
   }
 

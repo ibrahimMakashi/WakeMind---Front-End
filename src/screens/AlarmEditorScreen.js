@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useCallback, useState} from 'react';
 import {
   Alert,
   Pressable,
@@ -12,9 +12,8 @@ import {
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
+import {AlarmTimeSelector} from '../components/AlarmTimeSelector';
 import {AppIcon} from '../components/AppIcon';
-import {TimeWheels} from '../components/TimeWheels';
-import {initialEditorSelection} from '../components/timePickerData';
 import {
   DEFAULT_HOUR,
   DEFAULT_MINUTE,
@@ -22,7 +21,13 @@ import {
 } from '../constants/alarm';
 import {spacing} from '../constants/theme';
 import {deleteAlarm, saveAlarm} from '../services/alarmService';
+import {showRadialTimePicker} from '../services/timePickerService';
 import {useTheme} from '../theme/ThemeProvider';
+import {
+  applyConfirmedPickerResult,
+  buildSavePayload,
+  initialEditorSelection,
+} from '../utils/editorTime';
 import {repeatLabel, soundLabel, to24Hour} from '../utils/time';
 
 export function AlarmEditorScreen() {
@@ -35,7 +40,7 @@ export function AlarmEditorScreen() {
 function AlarmEditorForm({alarm}) {
   const navigation = useNavigation();
   const {reload} = useAlarms();
-  const {colors} = useTheme();
+  const {colors, scheme} = useTheme();
   const insets = useSafeAreaInsets();
   const initial = initialEditorSelection(
     alarm ? alarm.hour : DEFAULT_HOUR,
@@ -48,9 +53,34 @@ function AlarmEditorForm({alarm}) {
   const [vibrate, setVibrate] = useState(alarm ? alarm.vibrate !== false : true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pickingTime, setPickingTime] = useState(false);
   const [error, setError] = useState('');
-  const busy = saving || deleting;
+  const busy = saving || deleting || pickingTime;
   const editing = Boolean(alarm && alarm.id);
+
+  const openTimePicker = useCallback(async () => {
+    if (busy) {
+      return;
+    }
+    setPickingTime(true);
+    setError('');
+    const draft = {hour12, minute, period};
+    try {
+      const result = await showRadialTimePicker({
+        hour: to24Hour(hour12, period),
+        minute,
+        themeDark: scheme === 'dark',
+      });
+      const next = applyConfirmedPickerResult(draft, result);
+      setHour12(next.hour12);
+      setMinute(next.minute);
+      setPeriod(next.period);
+    } catch (pickerError) {
+      setError(pickerError.message || 'The time picker could not open.');
+    } finally {
+      setPickingTime(false);
+    }
+  }, [busy, hour12, minute, period, scheme]);
 
   async function onSave() {
     if (busy) {
@@ -59,14 +89,17 @@ function AlarmEditorForm({alarm}) {
     setSaving(true);
     setError('');
     try {
-      await saveAlarm({
-        id: editing ? alarm.id : undefined,
-        hour: to24Hour(hour12, period),
-        minute,
-        enabled: editing ? alarm.enabled : true,
-        vibrate,
-        label: label.trim(),
-      });
+      await saveAlarm(
+        buildSavePayload({
+          alarm,
+          hour12,
+          minute,
+          period,
+          label,
+          vibrate,
+          editing,
+        }),
+      );
       try {
         await reload();
       } catch (refreshError) {
@@ -150,13 +183,13 @@ function AlarmEditorForm({alarm}) {
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled">
-        <TimeWheels
+        <AlarmTimeSelector
+          colors={colors}
+          disabled={busy}
           hour12={hour12}
           minute={minute}
           period={period}
-          onHourChange={setHour12}
-          onMinuteChange={setMinute}
-          onPeriodChange={setPeriod}
+          onPress={openTimePicker}
         />
         <View style={[styles.group, {backgroundColor: colors.group}]}>
           <SettingRow label="Repeat" colors={colors}>

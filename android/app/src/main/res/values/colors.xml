@@ -5,4 +5,10 @@
     <color name="muted">#9AA3B2</color>
     <color name="stop">#D4654F</color>
     <color name="boot">#C8C2B8</color>
+    <color name="wm_picker_surface">#FFFCF8</color>
+    <color name="wm_picker_on_surface">#1C1916</color>
+    <color name="wm_picker_accent">#44507A</color>
+    <color name="wm_picker_surface_dark">#2C2C2E</color>
+    <color name="wm_picker_on_surface_dark">#F5F5F7</color>
+    <color name="wm_picker_accent_dark">#FF9F0A</color>
 </resources>
