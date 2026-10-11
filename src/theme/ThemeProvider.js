@@ -8,7 +8,8 @@ import {
   useState,
 } from 'react';
 import {useColorScheme} from 'react-native';
-import {palettes} from '../constants/theme';
+import {palettes, radius} from '../constants/theme';
+import {typography} from '../constants/typography';
 import {resolveColorScheme} from './resolveTheme';
 import {
   loadThemeMode as readSavedThemeMode,
@@ -85,6 +86,8 @@ export function ThemeProvider({
         mode,
         scheme: null,
         colors: null,
+        radius: null,
+        typography: null,
         statusBarStyle: null,
         setThemeMode,
       };
@@ -94,6 +97,8 @@ export function ThemeProvider({
       mode,
       scheme,
       colors: palettes[scheme],
+      radius,
+      typography,
       statusBarStyle: scheme === 'dark' ? 'light-content' : 'dark-content',
       setThemeMode,
     };

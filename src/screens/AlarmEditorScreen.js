@@ -1,23 +1,17 @@
 import {useCallback, useState} from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import {Alert, Pressable, ScrollView, StyleSheet, Text} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
-import {AlarmTimeSelector} from '../components/AlarmTimeSelector';
-import {AppIcon} from '../components/AppIcon';
+import {EditorHeader} from '../components/EditorHeader';
+import {EditorTimeCard} from '../components/EditorTimeCard';
+import {RepeatRoutineCard} from '../components/RepeatRoutineCard';
+import {ScreenContainer} from '../components/ScreenContainer';
+import {SettingsDivider, SettingsRow} from '../components/SettingsRow';
+import {SurfaceCard} from '../components/SurfaceCard';
 import {
   DEFAULT_HOUR,
   DEFAULT_MINUTE,
-  MAX_LABEL_LENGTH,
 } from '../constants/alarm';
 import {spacing} from '../constants/theme';
 import {deleteAlarm, saveAlarm} from '../services/alarmService';
@@ -28,7 +22,7 @@ import {
   buildSavePayload,
   initialEditorSelection,
 } from '../utils/editorTime';
-import {repeatLabel, soundLabel, to24Hour} from '../utils/time';
+import {soundLabel, to24Hour} from '../utils/time';
 
 export function AlarmEditorScreen() {
   const route = useRoute();
@@ -40,7 +34,7 @@ export function AlarmEditorScreen() {
 function AlarmEditorForm({alarm}) {
   const navigation = useNavigation();
   const {reload} = useAlarms();
-  const {colors, scheme} = useTheme();
+  const {colors, scheme, typography} = useTheme();
   const insets = useSafeAreaInsets();
   const initial = initialEditorSelection(
     alarm ? alarm.hour : DEFAULT_HOUR,
@@ -149,84 +143,56 @@ function AlarmEditorForm({alarm}) {
   }
 
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.editorBackground,
-          paddingTop: insets.top + spacing.sm,
-          paddingBottom: insets.bottom + spacing.md,
-        },
-      ]}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          disabled={saving}
-          onPress={() => navigation.goBack()}
-          style={[styles.round, {backgroundColor: colors.group}]}>
-          <AppIcon name="close" color={colors.text} size={20} />
-        </Pressable>
-        <Text style={[styles.title, {color: colors.text}]}>
-          {editing ? 'Edit Alarm' : 'Add Alarm'}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Save alarm"
-          accessibilityState={{disabled: busy}}
-          disabled={busy}
-          onPress={onSave}
-          style={[styles.round, {backgroundColor: colors.accent}, busy && styles.dimmed]}>
-          <AppIcon name="check" color={colors.accentText} size={22} />
-        </Pressable>
-      </View>
+    <ScreenContainer style={styles.screen} edges={[]}>
       <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled">
-        <AlarmTimeSelector
-          colors={colors}
+        contentContainerStyle={[
+          styles.content,
+          {paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl},
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <EditorHeader
+          onCancel={() => navigation.goBack()}
+          onSave={onSave}
+          saveDisabled={busy}
+          subtitle="B-DISCIPLINE · VISION LOCK"
+          title={editing ? 'Edit Alarm' : 'Add Alarm'}
+        />
+        <EditorTimeCard
           disabled={busy}
           hour12={hour12}
+          label={label}
           minute={minute}
+          onLabelChange={setLabel}
+          onPressTime={openTimePicker}
           period={period}
-          onPress={openTimePicker}
         />
-        <View style={[styles.group, {backgroundColor: colors.group}]}>
-          <SettingRow label="Repeat" colors={colors}>
-            <Text style={[styles.value, {color: colors.muted}]}>
-              {repeatLabel(alarm && alarm.repeat ? alarm.repeat : 'once')}
-            </Text>
-          </SettingRow>
-          <SettingDivider color={colors.background} />
-          <SettingRow label="Label" colors={colors}>
-            <TextInput
-              accessibilityLabel="Label"
-              maxLength={MAX_LABEL_LENGTH}
-              onChangeText={setLabel}
-              placeholder="Alarm"
-              placeholderTextColor={colors.muted}
-              style={[styles.input, {color: colors.text}]}
-              value={label}
-            />
-          </SettingRow>
-          <SettingDivider color={colors.background} />
-          <SettingRow label="Sound" colors={colors}>
-            <Text style={[styles.value, {color: colors.muted}]}>
-              {soundLabel(alarm ? alarm.sound : 'system-alarm')}
-            </Text>
-          </SettingRow>
-          <SettingDivider color={colors.background} />
-          <SettingRow label="Vibrate" colors={colors}>
-            <Switch
-              accessibilityLabel={vibrate ? 'Turn vibration off' : 'Turn vibration on'}
-              disabled={busy}
-              onValueChange={setVibrate}
-              thumbColor={colors.switchThumb}
-              trackColor={{false: colors.switchOff, true: colors.success}}
-              value={vibrate}
-            />
-          </SettingRow>
-        </View>
+        <RepeatRoutineCard />
+        <SurfaceCard style={styles.settings}>
+          <SettingsRow
+            icon="bell-outline"
+            subtitle="System default ringtone"
+            title="Alarm Sound"
+            trailing={soundLabel(alarm ? alarm.sound : 'system-alarm')}
+          />
+          <SettingsDivider />
+          <SettingsRow
+            disabled={busy}
+            icon="vibrate"
+            onSwitchChange={setVibrate}
+            subtitle="Use vibration when the alarm rings"
+            switchValue={vibrate}
+            title="Haptic Vibration"
+          />
+          <SettingsDivider />
+          <SettingsRow
+            badge="STRICT"
+            icon="clock-outline"
+            subtitle="Snooze is not available in this release"
+            title="Discipline Snooze"
+            trailing="Not available"
+          />
+        </SurfaceCard>
         {error ? (
           <Text style={[styles.error, {color: colors.error}]}>{error}</Text>
         ) : null}
@@ -234,92 +200,30 @@ function AlarmEditorForm({alarm}) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Delete alarm"
+            accessibilityState={{disabled: busy}}
             disabled={busy}
             onPress={onDeletePress}
-            style={[styles.delete, {backgroundColor: colors.group}, busy && styles.dimmed]}>
-            <Text style={[styles.deleteText, {color: colors.danger}]}>
+            style={styles.deleteHit}>
+            <Text style={[typography.bodyStrong, styles.delete, {color: colors.danger}]}>
               {deleting ? 'Deleting…' : 'Delete Alarm'}
             </Text>
           </Pressable>
         ) : null}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
-}
-
-function SettingRow({label, colors, children}) {
-  return (
-    <View style={styles.settingRow}>
-      <Text style={[styles.settingLabel, {color: colors.text}]}>{label}</Text>
-      <View style={styles.settingValue}>{children}</View>
-    </View>
-  );
-}
-
-function SettingDivider({color}) {
-  return <View style={[styles.settingDivider, {backgroundColor: color}]} />;
 }
 
 const styles = StyleSheet.create({
   screen: {
-    flex: 1,
     paddingHorizontal: spacing.md,
-  },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: 48,
-  },
-  round: {
-    alignItems: 'center',
-    borderRadius: 22,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  title: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'center',
   },
   content: {
-    paddingBottom: spacing.lg,
-    paddingTop: spacing.md,
+    flexGrow: 1,
   },
-  group: {
-    borderRadius: 16,
-    marginTop: spacing.lg,
-    overflow: 'hidden',
-  },
-  settingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: 52,
-    paddingHorizontal: spacing.md,
-  },
-  settingLabel: {
-    fontSize: 17,
-  },
-  settingValue: {
-    alignItems: 'flex-end',
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  settingDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: spacing.md,
-  },
-  value: {
-    fontSize: 17,
-  },
-  input: {
-    flex: 1,
-    fontSize: 17,
-    minHeight: 44,
-    paddingVertical: 0,
-    textAlign: 'right',
-    width: '100%',
+  settings: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.xs,
   },
   error: {
     fontSize: 14,
@@ -327,18 +231,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     textAlign: 'center',
   },
-  delete: {
+  deleteHit: {
     alignItems: 'center',
-    borderRadius: 16,
+    marginTop: spacing.xl,
+    minHeight: 44,
     justifyContent: 'center',
-    marginTop: spacing.lg,
-    minHeight: 52,
   },
-  deleteText: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  dimmed: {
-    opacity: 0.45,
+  delete: {
+    textAlign: 'center',
   },
 });

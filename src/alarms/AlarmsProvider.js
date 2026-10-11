@@ -1,6 +1,6 @@
 import {createContext, useCallback, useContext, useEffect, useState} from 'react';
 import {AppState, PermissionsAndroid, Platform} from 'react-native';
-import {getAlarms, getCapabilityStatus} from '../services/alarmService';
+import {getAlarms, getCapabilityStatus, setAlarmEnabled} from '../services/alarmService';
 
 const AlarmsContext = createContext(null);
 
@@ -69,6 +69,26 @@ export function AlarmsProvider({children}) {
     [reload],
   );
 
+  const toggleEnabled = useCallback(async (id, enabled) => {
+    let snapshot = [];
+    setAlarms(prev => {
+      snapshot = prev;
+      return prev.map(alarm =>
+        alarm.id === id ? {...alarm, enabled} : alarm,
+      );
+    });
+    try {
+      const updated = await setAlarmEnabled(id, enabled);
+      setAlarms(prev =>
+        prev.map(alarm => (alarm.id === id ? updated : alarm)),
+      );
+      return updated;
+    } catch (toggleError) {
+      setAlarms(snapshot);
+      throw toggleError;
+    }
+  }, []);
+
   const value = {
     alarms,
     capability,
@@ -76,6 +96,7 @@ export function AlarmsProvider({children}) {
     busy,
     reload,
     run,
+    toggleEnabled,
   };
 
   return (

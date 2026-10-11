@@ -1,0 +1,18 @@
+<resources>
+
+    <style name="ShapeAppearance.WakeMind.SmallComponent" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/wm_corner_sm</item>
+    </style>
+
+    <style name="ShapeAppearance.WakeMind.MediumComponent" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/wm_corner_md</item>
+    </style>
+
+    <style name="ShapeAppearance.WakeMind.LargeComponent" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">@dimen/wm_corner_lg</item>
+    </style>
+
+</resources>

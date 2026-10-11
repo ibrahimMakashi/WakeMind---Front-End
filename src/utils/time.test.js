@@ -2,6 +2,8 @@ import {
   difficultyLabel,
   formatAlarmListTime,
   formatEditorTime,
+  formatMissionTime,
+  formatListTimeParts,
   formatClock,
   from24Hour,
   nextAlarm,
@@ -78,6 +80,11 @@ test('formats editor time with a space before the period', () => {
   expect(formatEditorTime(0, 0)).toBe('12:00 AM');
   expect(formatEditorTime(12, 0)).toBe('12:00 PM');
   expect(formatEditorTime(18, 30)).toBe('6:30 PM');
+});
+
+test('splits mission and list times into clock and period parts', () => {
+  expect(formatMissionTime(6, 0)).toEqual({timeText: '6:00', period: 'AM'});
+  expect(formatListTimeParts(18, 5)).toEqual({timeText: '6:05', period: 'PM'});
 });
 
 test('sorts enabled and disabled alarms together by clock time', () => {

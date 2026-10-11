@@ -6,8 +6,9 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {AppIcon} from '../components/AppIcon';
 import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
 import {AlarmsScreen} from '../screens/AlarmsScreen';
-import {HomeScreen} from '../screens/HomeScreen';
+import {JournalScreen} from '../screens/JournalScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
+import {VisionScreen} from '../screens/VisionScreen';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
 import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
@@ -15,14 +16,16 @@ import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function HomeTabIcon({color, size, focused}) {
-  return (
-    <AppIcon name={focused ? 'home' : 'home-outline'} color={color} size={size} />
-  );
+function AlarmsTabIcon({color, size, focused}) {
+  return <AppIcon name={focused ? 'alarm' : 'alarm'} color={color} size={size} />;
 }
 
-function AlarmsTabIcon({color, size}) {
-  return <AppIcon name="alarm" color={color} size={size} />;
+function VisionTabIcon({color, size}) {
+  return <AppIcon name="star-four-points-outline" color={color} size={size} />;
+}
+
+function JournalTabIcon({color, size}) {
+  return <AppIcon name="book-open-variant" color={color} size={size} />;
 }
 
 function ProfileTabIcon({color, size, focused}) {
@@ -46,9 +49,9 @@ export function RootNavigator() {
         ...base.colors,
         primary: colors.accent,
         background: colors.background,
-        card: colors.surface,
+        card: colors.tabBar || colors.background,
         text: colors.text,
-        border: colors.line,
+        border: colors.border,
         notification: colors.accent,
       },
     };
@@ -76,9 +79,10 @@ export function RootNavigator() {
 }
 
 function MainTabs() {
-  const {colors} = useTheme();
+  const {colors, typography} = useTheme();
   return (
     <Tab.Navigator
+      initialRouteName="Alarms"
       detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
@@ -86,27 +90,39 @@ function MainTabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.divider,
+          backgroundColor: colors.tabBar || colors.background,
+          borderTopColor: colors.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: styles.label,
+        tabBarLabelStyle: typography.tabLabel,
         tabBarItemStyle: styles.item,
         sceneStyle: {backgroundColor: colors.background},
       }}>
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarAccessibilityLabel: 'Home',
-          tabBarIcon: HomeTabIcon,
-        }}
-      />
       <Tab.Screen
         name="Alarms"
         component={AlarmsScreen}
         options={{
           tabBarAccessibilityLabel: 'Alarms',
           tabBarIcon: AlarmsTabIcon,
+        }}
+      />
+      <Tab.Screen
+        name="Vision"
+        component={VisionScreen}
+        options={{
+          tabBarAccessibilityLabel: 'Vision',
+          tabBarIcon: VisionTabIcon,
+        }}
+      />
+      <Tab.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{
+          tabBarAccessibilityLabel: 'Journal',
+          tabBarIcon: JournalTabIcon,
         }}
       />
       <Tab.Screen
@@ -122,10 +138,6 @@ function MainTabs() {
 }
 
 const styles = StyleSheet.create({
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   item: {
     minHeight: 48,
   },

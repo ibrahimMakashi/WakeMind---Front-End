@@ -1,22 +1,30 @@
 import {useCallback, useMemo, useState} from 'react';
-import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
 import {AlarmCard} from '../components/AlarmCard';
-import {AppIcon} from '../components/AppIcon';
+import {BrandHeader} from '../components/BrandHeader';
+import {FloatingAddButton} from '../components/FloatingAddButton';
+import {NextMissionCard} from '../components/NextMissionCard';
+import {SectionHeader} from '../components/SectionHeader';
+import {StatCard} from '../components/StatCard';
 import {spacing} from '../constants/theme';
-import {setAlarmEnabled} from '../services/alarmService';
+import {useCountdownTo} from '../hooks/useCountdownTo';
 import {useTheme} from '../theme/ThemeProvider';
-import {sortAlarms} from '../utils/time';
+import {nextAlarm, sortAlarms} from '../utils/time';
 
 export function AlarmsScreen() {
   const navigation = useNavigation();
   const {colors} = useTheme();
   const insets = useSafeAreaInsets();
-  const {alarms, loadError, busy, reload, run} = useAlarms();
+  const {alarms, loadError, busy, reload, toggleEnabled} = useAlarms();
   const [error, setError] = useState('');
+  const [togglingId, setTogglingId] = useState('');
   const orderedAlarms = useMemo(() => sortAlarms(alarms), [alarms]);
+  const upcoming = nextAlarm(alarms);
+  const now = useCountdownTo(upcoming ? upcoming.triggerAtMillis : null);
+  const listBottom = insets.bottom + 72;
 
   useFocusEffect(
     useCallback(() => {
@@ -32,108 +40,109 @@ export function AlarmsScreen() {
     }, [reload]),
   );
 
-  async function runAction(action) {
+  async function onToggle(id, enabled) {
     setError('');
+    setTogglingId(id);
     try {
-      await run(action);
+      await toggleEnabled(id, enabled);
     } catch (actionError) {
       setError(actionError.message || 'Something went wrong.');
+    } finally {
+      setTogglingId('');
     }
   }
 
+  const listHeader = useMemo(
+    () => (
+      <View>
+        <BrandHeader />
+        <SectionHeader label="ACTIVE OBJECTIVE" />
+        <NextMissionCard alarm={upcoming} now={now} />
+        <View style={styles.statsRow}>
+          <StatCard
+            detail="Wake analytics are not tracked yet"
+            icon="clock-outline"
+            title="AVG WAKE"
+            value="—"
+          />
+          <View style={styles.statGap} />
+          <StatCard
+            detail="Mission history is not tracked yet"
+            icon="puzzle-outline"
+            title="MISSIONS DONE"
+            value="—"
+          />
+        </View>
+        <SectionHeader
+          label="SCHEDULED ALARMS"
+          meta={`${orderedAlarms.length} Configured`}
+        />
+        {error || loadError ? (
+          <Text style={[styles.error, {color: colors.error}]}>{error || loadError}</Text>
+        ) : null}
+        {orderedAlarms.length === 0 ? (
+          <Text style={[styles.empty, {color: colors.muted}]}>
+            No alarms yet. Tap + to schedule your first mission.
+          </Text>
+        ) : null}
+      </View>
+    ),
+    [colors.error, colors.muted, error, loadError, now, orderedAlarms.length, upcoming],
+  );
+
   return (
     <View style={[styles.screen, {backgroundColor: colors.background}]}>
-      <View style={[styles.header, {paddingTop: insets.top + spacing.sm}]}>
-        <View style={styles.headerSide} />
-        <Text style={[styles.title, {color: colors.text}]}>Alarms</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add alarm"
-          disabled={busy}
-          onPress={() => navigation.navigate('Editor', {alarm: null})}
-          style={[styles.add, {backgroundColor: colors.surfaceRaised}]}>
-          <AppIcon name="plus" color={colors.text} size={22} />
-        </Pressable>
-      </View>
-      {error || loadError ? (
-        <Text style={[styles.error, {color: colors.error}]}>{error || loadError}</Text>
-      ) : null}
-      <FlatList
-        data={orderedAlarms}
-        extraData={busy}
-        keyExtractor={alarm => alarm.id}
-        style={styles.list}
-        contentContainerStyle={styles.content}
-        ItemSeparatorComponent={Separator}
-        ListEmptyComponent={
-          <Text style={[styles.empty, {color: colors.muted}]}>
-            No alarms yet. Add one to choose a time.
-          </Text>
-        }
-        renderItem={({item}) => (
+      <ScrollView
+        contentContainerStyle={[
+          styles.list,
+          {
+            paddingTop: insets.top + spacing.sm,
+            paddingBottom: listBottom,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}>
+        {listHeader}
+        {orderedAlarms.map(alarm => (
           <AlarmCard
-            alarm={item}
-            disabled={busy}
-            onToggle={enabled => runAction(() => setAlarmEnabled(item.id, enabled))}
-            onEdit={() => navigation.navigate('Editor', {alarm: item})}
+            key={alarm.id}
+            alarm={alarm}
+            onEdit={() => navigation.navigate('Editor', {alarm})}
+            onToggle={enabled => onToggle(alarm.id, enabled)}
+            toggling={togglingId === alarm.id}
           />
-        )}
+        ))}
+      </ScrollView>
+      <FloatingAddButton
+        disabled={busy}
+        onPress={() => navigation.navigate('Editor', {alarm: null})}
       />
     </View>
   );
-}
-
-function Separator() {
-  const {colors} = useTheme();
-  return <View style={[styles.separator, {backgroundColor: colors.divider}]} />;
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  header: {
-    alignItems: 'center',
+  list: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.md,
+  },
+  statsRow: {
     flexDirection: 'row',
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
   },
-  headerSide: {
-    width: 44,
-  },
-  title: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  add: {
-    alignItems: 'center',
-    borderRadius: 22,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
+  statGap: {
+    width: spacing.sm,
   },
   error: {
     fontSize: 15,
     lineHeight: 21,
     marginBottom: spacing.sm,
-    marginHorizontal: spacing.lg,
-  },
-  list: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingBottom: spacing.lg,
-    paddingHorizontal: spacing.lg,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
   },
   empty: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 22,
-    marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
 });

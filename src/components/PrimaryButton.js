@@ -52,7 +52,7 @@ export function PrimaryButton({
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 999,
     justifyContent: 'center',
     minHeight: 52,
     paddingHorizontal: spacing.lg,

@@ -14,18 +14,74 @@
         <item name="android:navigationBarColor">@color/ink</item>
     </style>
 
-    <style name="WakeMindTimePickerLight" parent="ThemeOverlay.MaterialComponents.TimePicker">
-        <item name="colorPrimary">@color/wm_picker_accent</item>
-        <item name="colorOnPrimary">@color/wm_picker_surface</item>
-        <item name="colorSurface">@color/wm_picker_surface</item>
-        <item name="colorOnSurface">@color/wm_picker_on_surface</item>
+    <style name="WakeMindTimePickerBase" parent="ThemeOverlay.MaterialComponents.TimePicker">
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.WakeMind.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.WakeMind.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.WakeMind.LargeComponent</item>
+        <item name="materialTimePickerStyle">@style/Widget.WakeMind.TimePicker</item>
+        <item name="chipStyle">@style/Widget.WakeMind.TimePicker.Display</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.WakeMind.TimePicker.Button</item>
+        <item name="imageButtonStyle">@style/Widget.WakeMind.TimePicker.ImageButton</item>
     </style>
 
-    <style name="WakeMindTimePickerDark" parent="ThemeOverlay.MaterialComponents.TimePicker">
+    <style name="WakeMindTimePickerLight" parent="WakeMindTimePickerBase">
+        <item name="colorPrimary">@color/wm_picker_accent</item>
+        <item name="colorOnPrimary">@color/wm_picker_accent_text</item>
+        <item name="colorSecondary">@color/wm_picker_accent</item>
+        <item name="colorOnSecondary">@color/wm_picker_accent_text</item>
+        <item name="colorSurface">@color/wm_picker_surface</item>
+        <item name="colorOnSurface">@color/wm_picker_on_surface</item>
+        <item name="android:colorBackground">@color/wm_picker_surface</item>
+        <item name="materialClockStyle">@style/Widget.WakeMind.TimePicker.Clock.Light</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.WakeMind.TimePicker.Button.Light</item>
+    </style>
+
+    <style name="WakeMindTimePickerDark" parent="WakeMindTimePickerBase">
         <item name="colorPrimary">@color/wm_picker_accent_dark</item>
-        <item name="colorOnPrimary">@color/wm_picker_surface_dark</item>
+        <item name="colorOnPrimary">@color/wm_picker_accent_text</item>
+        <item name="colorSecondary">@color/wm_picker_accent_dark</item>
+        <item name="colorOnSecondary">@color/wm_picker_accent_text</item>
         <item name="colorSurface">@color/wm_picker_surface_dark</item>
         <item name="colorOnSurface">@color/wm_picker_on_surface_dark</item>
+        <item name="android:colorBackground">@color/wm_picker_surface_dark</item>
+        <item name="materialClockStyle">@style/Widget.WakeMind.TimePicker.Clock.Dark</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.WakeMind.TimePicker.Button.Dark</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker" parent="Widget.MaterialComponents.TimePicker">
+        <item name="shapeAppearance">@style/ShapeAppearance.WakeMind.LargeComponent</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Display" parent="Widget.MaterialComponents.TimePicker.Display">
+        <item name="shapeAppearance">@style/ShapeAppearance.WakeMind.MediumComponent</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Button" parent="Widget.MaterialComponents.TimePicker.Button">
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.WakeMind.MediumComponent</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Button.Light" parent="Widget.WakeMind.TimePicker.Button">
+        <item name="strokeColor">@color/wm_picker_border</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Button.Dark" parent="Widget.WakeMind.TimePicker.Button">
+        <item name="strokeColor">@color/wm_picker_border_dark</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.ImageButton" parent="Widget.MaterialComponents.TimePicker.ImageButton">
+        <item name="shapeAppearance">@style/ShapeAppearance.WakeMind.SmallComponent</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Clock.Light" parent="Widget.MaterialComponents.TimePicker.Clock">
+        <item name="clockFaceBackgroundColor">@color/wm_picker_clock_face</item>
+        <item name="clockHandColor">@color/wm_picker_accent</item>
+        <item name="clockNumberTextColor">@color/wm_picker_on_surface</item>
+    </style>
+
+    <style name="Widget.WakeMind.TimePicker.Clock.Dark" parent="Widget.MaterialComponents.TimePicker.Clock">
+        <item name="clockFaceBackgroundColor">@color/wm_picker_clock_face_dark</item>
+        <item name="clockHandColor">@color/wm_picker_accent_dark</item>
+        <item name="clockNumberTextColor">@color/wm_picker_on_surface_dark</item>
     </style>
 
 </resources>

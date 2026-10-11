@@ -1,66 +1,93 @@
 import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
 import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
-import {formatAlarmListTime} from '../utils/time';
+import {formatListTimeParts} from '../utils/time';
+import {StatusBadge} from './StatusBadge';
+import {SurfaceCard} from './SurfaceCard';
 
-export function AlarmCard({alarm, onToggle, onEdit, disabled}) {
-  const {colors} = useTheme();
-  const timeLabel = formatAlarmListTime(alarm.hour, alarm.minute);
-  const timeColor = alarm.enabled ? colors.text : colors.muted;
-  const labelColor = alarm.enabled ? colors.textSoft : colors.muted;
+export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
+  const {colors, typography} = useTheme();
+  const parts = formatListTimeParts(alarm.hour, alarm.minute);
+  const enabled = alarm.enabled;
+  const timeColor = enabled ? colors.text : colors.textSoft;
+  const periodColor = enabled ? colors.accent : colors.textSoft;
+
   return (
-    <View style={styles.row}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Edit ${alarm.label}, ${timeLabel}`}
-        disabled={disabled}
-        onPress={onEdit}
-        style={styles.copy}>
-        <Text style={[styles.time, {color: timeColor}]}>{timeLabel}</Text>
-        <Text style={[styles.label, {color: labelColor}]}>{alarm.label}</Text>
-      </Pressable>
-      <View style={styles.switchHit}>
+    <SurfaceCard accentTop={enabled} subdued={!enabled} style={styles.card}>
+      <View collapsable={false} style={styles.topRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${alarm.label}, ${parts.timeText} ${parts.period}`}
+          onPress={onEdit}
+          style={styles.timePress}>
+          <View style={styles.timeRow}>
+            <Text style={[typography.listTime, {color: timeColor}]}>
+              {parts.timeText}
+            </Text>
+            <Text style={[typography.listPeriod, styles.period, {color: periodColor}]}>
+              {parts.period}
+            </Text>
+          </View>
+        </Pressable>
         <Switch
           accessibilityLabel={
-            alarm.enabled ? `Turn ${alarm.label} off` : `Turn ${alarm.label} on`
+            enabled ? `Turn ${alarm.label} off` : `Turn ${alarm.label} on`
           }
-          disabled={disabled}
-          value={alarm.enabled}
+          disabled={toggling}
           onValueChange={onToggle}
-          trackColor={{false: colors.switchOff, true: colors.success}}
           thumbColor={colors.switchThumb}
+          trackColor={{false: colors.switchOff, true: colors.accent}}
+          value={enabled}
         />
       </View>
-    </View>
+      <Pressable collapsable={false} onPress={onEdit}>
+        <Text style={[typography.bodyStrong, styles.label, {color: timeColor}]}>
+          {alarm.label}
+        </Text>
+        <View collapsable={false} style={styles.metaRow}>
+          <StatusBadge
+            icon={alarm.vibrate !== false ? 'vibrate' : 'volume-off'}
+            label={alarm.vibrate !== false ? 'Vibration' : 'Silent'}
+            muted={!enabled}
+          />
+          <Text style={[typography.caption, {color: colors.textSoft}]}>
+            {enabled ? '' : 'Inactive'}
+          </Text>
+        </View>
+      </Pressable>
+    </SurfaceCard>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    alignItems: 'center',
+  card: {
+    marginBottom: spacing.sm,
+  },
+  topRow: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
-    minHeight: 96,
-    paddingVertical: spacing.sm,
+    justifyContent: 'space-between',
   },
-  copy: {
+  timePress: {
     flex: 1,
-    justifyContent: 'center',
     minHeight: 44,
-    paddingRight: spacing.md,
   },
-  time: {
-    fontSize: 42,
-    fontWeight: '400',
-    letterSpacing: -0.8,
+  timeRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  period: {
+    marginBottom: 6,
+    marginLeft: spacing.sm,
   },
   label: {
-    fontSize: 15,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
-  switchHit: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 52,
+  metaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
 });

@@ -19,21 +19,21 @@ internal data class ThemePalette(
 internal object ThemePalettes {
   private val light =
       ThemePalette(
-          background = 0xFFF4EFE6.toInt(),
-          text = 0xFF1C1916.toInt(),
-          muted = 0xFF6F675F.toInt(),
-          accent = 0xFF44507A.toInt(),
-          stop = 0xFFA33B32.toInt(),
-          stopText = 0xFFF8F5F0.toInt(),
+          background = 0xFFE8ECF5.toInt(),
+          text = 0xFF0B1020.toInt(),
+          muted = 0xFF626B7D.toInt(),
+          accent = 0xFFE5A035.toInt(),
+          stop = 0xFFB8434F.toInt(),
+          stopText = 0xFFFFFFFF.toInt(),
       )
 
   private val dark =
       ThemePalette(
-          background = 0xFF000000.toInt(),
-          text = 0xFFF5F5F7.toInt(),
-          muted = 0xFF8E8E93.toInt(),
-          accent = 0xFFFF9F0A.toInt(),
-          stop = 0xFFFF453A.toInt(),
+          background = 0xFF0B1020.toInt(),
+          text = 0xFFF1F3FF.toInt(),
+          muted = 0xFF626B7D.toInt(),
+          accent = 0xFFFFB84D.toInt(),
+          stop = 0xFFE06B7A.toInt(),
           stopText = 0xFFFFFFFF.toInt(),
       )
 

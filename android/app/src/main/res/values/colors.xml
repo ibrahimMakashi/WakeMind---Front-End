@@ -4,11 +4,16 @@
     <color name="brass">#C6A15B</color>
     <color name="muted">#9AA3B2</color>
     <color name="stop">#D4654F</color>
-    <color name="boot">#C8C2B8</color>
-    <color name="wm_picker_surface">#FFFCF8</color>
-    <color name="wm_picker_on_surface">#1C1916</color>
-    <color name="wm_picker_accent">#44507A</color>
-    <color name="wm_picker_surface_dark">#2C2C2E</color>
-    <color name="wm_picker_on_surface_dark">#F5F5F7</color>
-    <color name="wm_picker_accent_dark">#FF9F0A</color>
+    <color name="boot">#0B1020</color>
+    <color name="wm_picker_surface">#FFFFFF</color>
+    <color name="wm_picker_on_surface">#0B1020</color>
+    <color name="wm_picker_accent">#E5A035</color>
+    <color name="wm_picker_clock_face">#DDE3F0</color>
+    <color name="wm_picker_border">#C5CDDC</color>
+    <color name="wm_picker_surface_dark">#222A3B</color>
+    <color name="wm_picker_on_surface_dark">#F1F3FF</color>
+    <color name="wm_picker_accent_dark">#FFB84D</color>
+    <color name="wm_picker_clock_face_dark">#151B2A</color>
+    <color name="wm_picker_border_dark">#2C3447</color>
+    <color name="wm_picker_accent_text">#21180B</color>
 </resources>

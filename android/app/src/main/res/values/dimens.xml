@@ -1,0 +1,6 @@
+<resources>
+    <!-- Match src/constants/theme.js radius sm / md / lg -->
+    <dimen name="wm_corner_sm">10dp</dimen>
+    <dimen name="wm_corner_md">16dp</dimen>
+    <dimen name="wm_corner_lg">20dp</dimen>
+</resources>
