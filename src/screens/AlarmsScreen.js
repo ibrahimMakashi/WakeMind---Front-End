@@ -5,7 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
 import {AlarmCard} from '../components/AlarmCard';
 import {BrandHeader} from '../components/BrandHeader';
-import {FloatingAddButton} from '../components/FloatingAddButton';
+import {FAB_BOTTOM_GAP, FAB_SIZE, FloatingAddButton} from '../components/FloatingAddButton';
 import {NextMissionCard} from '../components/NextMissionCard';
 import {SectionHeader} from '../components/SectionHeader';
 import {StatCard} from '../components/StatCard';
@@ -20,11 +20,11 @@ export function AlarmsScreen() {
   const insets = useSafeAreaInsets();
   const {alarms, loadError, busy, reload, toggleEnabled} = useAlarms();
   const [error, setError] = useState('');
-  const [togglingId, setTogglingId] = useState('');
+  const [pendingToggles, setPendingToggles] = useState({});
   const orderedAlarms = useMemo(() => sortAlarms(alarms), [alarms]);
   const upcoming = nextAlarm(alarms);
   const now = useCountdownTo(upcoming ? upcoming.triggerAtMillis : null);
-  const listBottom = insets.bottom + 72;
+  const listBottom = insets.bottom + FAB_SIZE + FAB_BOTTOM_GAP + spacing.md;
 
   useFocusEffect(
     useCallback(() => {
@@ -42,13 +42,20 @@ export function AlarmsScreen() {
 
   async function onToggle(id, enabled) {
     setError('');
-    setTogglingId(id);
+    setPendingToggles(current => ({...current, [id]: true}));
     try {
       await toggleEnabled(id, enabled);
     } catch (actionError) {
       setError(actionError.message || 'Something went wrong.');
     } finally {
-      setTogglingId('');
+      setPendingToggles(current => {
+        if (!current[id]) {
+          return current;
+        }
+        const next = {...current};
+        delete next[id];
+        return next;
+      });
     }
   }
 
@@ -106,9 +113,14 @@ export function AlarmsScreen() {
           <AlarmCard
             key={alarm.id}
             alarm={alarm}
-            onEdit={() => navigation.navigate('Editor', {alarm})}
+            onEdit={() => {
+              if (pendingToggles[alarm.id]) {
+                return;
+              }
+              navigation.navigate('Editor', {alarm});
+            }}
             onToggle={enabled => onToggle(alarm.id, enabled)}
-            toggling={togglingId === alarm.id}
+            toggling={Boolean(pendingToggles[alarm.id])}
           />
         ))}
       </ScrollView>

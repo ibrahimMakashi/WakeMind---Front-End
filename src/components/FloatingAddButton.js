@@ -1,11 +1,15 @@
 import {Pressable, StyleSheet, View} from 'react-native';
+import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 import {AppIcon} from './AppIcon';
 
+export const FAB_SIZE = 56;
+// The alarms scene ends at the tab bar. The reference leaves a gap above it.
+export const FAB_BOTTOM_GAP = spacing.md;
+
 export function FloatingAddButton({onPress, disabled}) {
   const {colors, radius} = useTheme();
-  // The screen scene ends at the top edge of the tab bar.
-  const bottom = 0;
+  const bottom = FAB_BOTTOM_GAP;
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, {bottom}]}>
@@ -43,12 +47,12 @@ const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
     elevation: 8,
-    height: 56,
+    height: FAB_SIZE,
     justifyContent: 'center',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.35,
     shadowRadius: 12,
-    width: 56,
+    width: FAB_SIZE,
   },
   pressed: {
     opacity: 0.9,

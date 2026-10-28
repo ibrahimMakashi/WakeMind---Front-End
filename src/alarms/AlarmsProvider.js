@@ -1,4 +1,4 @@
-import {createContext, useCallback, useContext, useEffect, useState} from 'react';
+import {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
 import {AppState, PermissionsAndroid, Platform} from 'react-native';
 import {getAlarms, getCapabilityStatus, setAlarmEnabled} from '../services/alarmService';
 
@@ -9,17 +9,26 @@ export function AlarmsProvider({children}) {
   const [capability, setCapability] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Synchronous copy so overlapping toggles and reloads don't read a stale render.
+  const alarmsRef = useRef([]);
+
+  const commitAlarms = useCallback(update => {
+    const next = update(alarmsRef.current);
+    alarmsRef.current = next;
+    setAlarms(next);
+  }, []);
 
   const reload = useCallback(async () => {
     const [nextAlarms, nextCapability] = await Promise.all([
       getAlarms(),
       getCapabilityStatus(),
     ]);
-    setAlarms(Array.isArray(nextAlarms) ? nextAlarms : []);
+    const list = Array.isArray(nextAlarms) ? nextAlarms : [];
+    commitAlarms(() => list);
     setCapability(nextCapability);
     setLoadError('');
-    return nextAlarms;
-  }, []);
+    return list;
+  }, [commitAlarms]);
 
   useEffect(() => {
     let active = true;
@@ -70,24 +79,30 @@ export function AlarmsProvider({children}) {
   );
 
   const toggleEnabled = useCallback(async (id, enabled) => {
-    let snapshot = [];
-    setAlarms(prev => {
-      snapshot = prev;
-      return prev.map(alarm =>
-        alarm.id === id ? {...alarm, enabled} : alarm,
-      );
-    });
+    const existing = alarmsRef.current.find(alarm => alarm.id === id);
+    const previousEnabled = existing ? existing.enabled : enabled;
+
+    commitAlarms(current =>
+      current.map(alarm => (alarm.id === id ? {...alarm, enabled} : alarm)),
+    );
+
     try {
       const updated = await setAlarmEnabled(id, enabled);
-      setAlarms(prev =>
-        prev.map(alarm => (alarm.id === id ? updated : alarm)),
+      commitAlarms(current =>
+        current.map(alarm => (alarm.id === id ? updated : alarm)),
       );
       return updated;
     } catch (toggleError) {
-      setAlarms(snapshot);
+      // Restore only this alarm's enabled flag. Other alarms may have changed
+      // while the request was in flight, and those updates must stay.
+      commitAlarms(current =>
+        current.map(alarm =>
+          alarm.id === id ? {...alarm, enabled: previousEnabled} : alarm,
+        ),
+      );
       throw toggleError;
     }
-  }, []);
+  }, [commitAlarms]);
 
   const value = {
     alarms,

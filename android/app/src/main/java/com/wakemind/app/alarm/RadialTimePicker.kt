@@ -11,6 +11,31 @@ import com.google.android.material.timepicker.TimeFormat
 import com.wakemind.app.R
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal enum class PickerPresentation {
+  /** DialogFragment.show() while the activity can still commit fragments. */
+  SHOW,
+  /** State is already saved. Do not call show() or showNow(). */
+  REJECT_STATE_SAVED,
+}
+
+internal class SingleSettlement {
+  private val settled = AtomicBoolean(false)
+
+  fun claim(): Boolean = settled.compareAndSet(false, true)
+}
+
+/**
+ * showNow() uses commitNow() and throws IllegalStateException after
+ * onSaveInstanceState. A saved state must reject the request instead.
+ */
+internal fun presentationFor(stateSaved: Boolean): PickerPresentation {
+  return if (stateSaved) {
+    PickerPresentation.REJECT_STATE_SAVED
+  } else {
+    PickerPresentation.SHOW
+  }
+}
+
 internal object RadialTimePicker {
   private const val TAG = "RadialTimePicker"
   private const val FRAGMENT_TAG = "WakeMindTimePicker"
@@ -24,16 +49,16 @@ internal object RadialTimePicker {
   ) {
     validateClock(hour24, minute)
 
-    val settled = AtomicBoolean(false)
+    val settlement = SingleSettlement()
     fun resolveCancel() {
-      if (!settled.compareAndSet(false, true)) {
+      if (!settlement.claim()) {
         return
       }
       promise.resolve(cancelledMap())
     }
 
     fun resolveSet(hour: Int, selectedMinute: Int) {
-      if (!settled.compareAndSet(false, true)) {
+      if (!settlement.claim()) {
         return
       }
       val map = Arguments.createMap()
@@ -41,6 +66,17 @@ internal object RadialTimePicker {
       map.putInt("hour", hour)
       map.putInt("minute", selectedMinute)
       promise.resolve(map)
+    }
+
+    fun rejectOnce(code: String, message: String, error: Throwable? = null) {
+      if (!settlement.claim()) {
+        return
+      }
+      if (error == null) {
+        promise.reject(code, message)
+      } else {
+        promise.reject(code, message, error)
+      }
     }
 
     val themeRes = if (themeDark) R.style.WakeMindTimePickerDark else R.style.WakeMindTimePickerLight
@@ -58,42 +94,47 @@ internal object RadialTimePicker {
     }
     picker.addOnNegativeButtonClickListener { resolveCancel() }
     picker.addOnCancelListener { resolveCancel() }
-    picker.addOnDismissListener {
-      if (!settled.get()) {
-        resolveCancel()
-      }
-    }
+    picker.addOnDismissListener { resolveCancel() }
 
     activity.window.decorView.post {
       if (activity.isFinishing || activity.isDestroyed) {
-        if (settled.compareAndSet(false, true)) {
-          promise.reject("TIME_PICKER_UNAVAILABLE", "The app activity is not available.")
-        }
+        rejectOnce("TIME_PICKER_UNAVAILABLE", "The app activity is not available.")
         return@post
       }
       try {
-        showSafely(activity, picker)
+        if (!showSafely(activity, picker)) {
+          Log.w(TAG, "Time picker was not shown because the activity state is already saved.")
+          rejectOnce(
+              "TIME_PICKER_UNAVAILABLE",
+              "The time picker cannot open while the screen is pausing.",
+          )
+        }
       } catch (error: Exception) {
         Log.e(TAG, "Could not open the time picker.", error)
-        if (settled.compareAndSet(false, true)) {
-          promise.reject("TIME_PICKER_FAILED", error.message, error)
-        }
+        rejectOnce(
+            "TIME_PICKER_FAILED",
+            error.message ?: "The time picker could not open.",
+            error,
+        )
       }
     }
   }
 
-  private fun showSafely(activity: FragmentActivity, picker: MaterialTimePicker) {
+  private fun showSafely(activity: FragmentActivity, picker: MaterialTimePicker): Boolean {
     val manager = activity.supportFragmentManager
+    if (presentationFor(manager.isStateSaved) != PickerPresentation.SHOW) {
+      return false
+    }
     val existing = manager.findFragmentByTag(FRAGMENT_TAG)
-    if (existing is DialogFragment) {
-      existing.dismissAllowingStateLoss()
+    if (existing is DialogFragment && existing.isAdded) {
+      existing.dismiss()
     }
     manager.executePendingTransactions()
-    if (manager.isStateSaved) {
-      picker.showNow(manager, FRAGMENT_TAG)
-    } else {
-      picker.show(manager, FRAGMENT_TAG)
+    if (presentationFor(manager.isStateSaved) != PickerPresentation.SHOW) {
+      return false
     }
+    picker.show(manager, FRAGMENT_TAG)
+    return true
   }
 
   internal fun validateClock(hour24: Int, minute: Int) {

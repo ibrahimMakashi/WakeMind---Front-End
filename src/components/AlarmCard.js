@@ -12,13 +12,22 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
   const timeColor = enabled ? colors.text : colors.textSoft;
   const periodColor = enabled ? colors.accent : colors.textSoft;
 
+  function openEditor() {
+    if (toggling) {
+      return;
+    }
+    onEdit();
+  }
+
   return (
     <SurfaceCard accentTop={enabled} subdued={!enabled} style={styles.card}>
       <View collapsable={false} style={styles.topRow}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Edit ${alarm.label}, ${parts.timeText} ${parts.period}`}
-          onPress={onEdit}
+          accessibilityState={{disabled: Boolean(toggling)}}
+          disabled={Boolean(toggling)}
+          onPress={openEditor}
           style={styles.timePress}>
           <View style={styles.timeRow}>
             <Text style={[typography.listTime, {color: timeColor}]}>
@@ -40,7 +49,11 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
           value={enabled}
         />
       </View>
-      <Pressable collapsable={false} onPress={onEdit}>
+      <Pressable
+        accessibilityState={{disabled: Boolean(toggling)}}
+        collapsable={false}
+        disabled={Boolean(toggling)}
+        onPress={openEditor}>
         <Text style={[typography.bodyStrong, styles.label, {color: timeColor}]}>
           {alarm.label}
         </Text>
