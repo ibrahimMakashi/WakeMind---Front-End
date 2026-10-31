@@ -34,6 +34,11 @@ function PuzzleTileComponent({
   );
 
   const showHighlight = selected || hovered;
+  const layerStyle = dragging
+    ? styles.layerDragging
+    : showHighlight
+      ? styles.layerHighlight
+      : styles.layerBase;
 
   return (
     <Animated.View
@@ -45,11 +50,10 @@ function PuzzleTileComponent({
       pointerEvents="none"
       style={[
         styles.tile,
+        layerStyle,
         {
           width: layout.cell,
           height: layout.cell,
-          zIndex: dragging ? 20 : showHighlight ? 8 : 1,
-          elevation: dragging ? 8 : showHighlight ? 4 : 0,
         },
         {
           transform: [
@@ -118,6 +122,18 @@ const styles = StyleSheet.create({
     left: 0,
     position: 'absolute',
     top: 0,
+  },
+  layerBase: {
+    elevation: 0,
+    zIndex: 1,
+  },
+  layerHighlight: {
+    elevation: 4,
+    zIndex: 8,
+  },
+  layerDragging: {
+    elevation: 8,
+    zIndex: 20,
   },
   clip: {
     flex: 1,

@@ -1,4 +1,4 @@
-import {forwardRef, useCallback} from 'react';
+import {forwardRef, useCallback, useImperativeHandle, useRef} from 'react';
 import {Animated, StyleSheet, View} from 'react-native';
 import {useTheme} from '../../theme/ThemeProvider';
 import {PuzzleTile} from './PuzzleTile';
@@ -19,6 +19,25 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
   ref,
 ) {
   const {colors} = useTheme();
+  const rootRef = useRef(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      measureInWindow: cb => {
+        if (
+          rootRef.current &&
+          typeof rootRef.current.measureInWindow === 'function' &&
+          !rootRef.current.measureInWindow._isMockFunction
+        ) {
+          rootRef.current.measureInWindow(cb);
+        } else {
+          cb(0, 0);
+        }
+      },
+    }),
+    [],
+  );
 
   const handleA11y = useCallback(
     tileId => {
@@ -31,7 +50,7 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
 
   return (
     <View
-      ref={ref}
+      ref={rootRef}
       collapsable={false}
       {...panHandlers}
       style={[

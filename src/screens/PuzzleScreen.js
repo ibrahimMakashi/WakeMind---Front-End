@@ -39,39 +39,71 @@ export function PuzzleScreen() {
   const {width} = useWindowDimensions();
   const boardWidth = width - spacing.md * 2;
 
-  const game = usePuzzleGame('easy');
-  const motion = useTileMotion(reducedMotion);
+  const {
+    board,
+    boardRef: gameStateRef,
+    difficulty,
+    phase,
+    canInteract,
+    applyTap,
+    applyDrop,
+    applyShuffle,
+    startNewDifficulty,
+    checkSolved,
+    markSolved,
+    unlockAfterComplete,
+    setPhaseSafe,
+  } = usePuzzleGame('easy');
+
+  const {
+    getMotion,
+    snapToBoard,
+    animateGrab,
+    animateReleaseGrab,
+    animateReturn,
+    animateSwap,
+    animateShuffle,
+    stopAll,
+    ensureMap,
+    setActiveDrag,
+  } = useTileMotion(reducedMotion);
+
   const layout = useMemo(
-    () => createLayout(boardWidth, game.board.size),
-    [boardWidth, game.board.size],
+    () => createLayout(boardWidth, board.size),
+    [boardWidth, board.size],
   );
 
-  // boardRef is passed directly to usePuzzleGestures so it can call
-  // measureInWindow inline on each grant. No cache is maintained here.
-  const boardRef = useRef(null);
+  const boardViewRef = useRef(null);
   const [hoverId, setHoverId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const completionGlow = useRef(new Animated.Value(0)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
   const mountedScrambleRef = useRef(false);
+  const initialSetupDoneRef = useRef(false);
+  const prevLayoutRef = useRef({boardPx: layout.boardPx, size: layout.size});
 
   const runScramble = useCallback(
     async random => {
-      game.setPhaseSafe('animating');
-      const previous = cloneBoardSnapshot(game.boardRef.current);
-      const next = game.applyShuffle(random);
-      await motion.animateShuffle(previous, next, layout);
-      motion.snapToBoard(next, layout);
-      game.setPhaseSafe('idle');
+      setPhaseSafe('animating');
+      const previous = cloneBoardSnapshot(gameStateRef.current);
+      const next = applyShuffle(random);
+      await animateShuffle(previous, next, layout);
+      snapToBoard(next, layout);
+      setPhaseSafe('idle');
     },
-    [game, layout, motion],
+    [animateShuffle, applyShuffle, gameStateRef, layout, setPhaseSafe, snapToBoard],
   );
 
+  // Initial board setup once on mount
   useEffect(() => {
-    motion.ensureMap(game.board);
-    motion.snapToBoard(game.board, layout);
-  }, [game.board, layout, motion]);
+    if (!initialSetupDoneRef.current) {
+      initialSetupDoneRef.current = true;
+      ensureMap(gameStateRef.current);
+      snapToBoard(gameStateRef.current, layout);
+    }
+  }, [ensureMap, gameStateRef, layout, snapToBoard]);
 
+  // Initial scramble only on first mount
   useEffect(() => {
     if (mountedScrambleRef.current) {
       return;
@@ -82,16 +114,14 @@ export function PuzzleScreen() {
         'Initial puzzle scramble failed.',
         scrambleError instanceof Error ? scrambleError.message : scrambleError,
       );
-      game.setPhaseSafe('idle');
+      setPhaseSafe('idle');
     });
-    // Initial scramble only on first mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [runScramble, setPhaseSafe]);
 
   const finishSwapAnimation = useCallback(async () => {
-    motion.snapToBoard(game.boardRef.current, layout);
-    if (game.checkSolved()) {
-      game.markSolved();
+    snapToBoard(gameStateRef.current, layout);
+    if (checkSolved()) {
+      markSolved();
       try {
         Vibration.vibrate(COMPLETION_HAPTIC_MS);
       } catch (hapticError) {
@@ -116,33 +146,43 @@ export function PuzzleScreen() {
         }),
       ]).start();
     } else {
-      game.setPhaseSafe('idle');
+      setPhaseSafe('idle');
     }
-  }, [checkScale, completionGlow, game, layout, motion, reducedMotion]);
+  }, [
+    checkScale,
+    checkSolved,
+    completionGlow,
+    gameStateRef,
+    layout,
+    markSolved,
+    reducedMotion,
+    setPhaseSafe,
+    snapToBoard,
+  ]);
 
   const handleTapTile = useCallback(
     async tileId => {
-      if (!game.canInteract) {
+      if (!canInteract) {
         return;
       }
-      const before = cloneBoardSnapshot(game.boardRef.current);
+      const before = cloneBoardSnapshot(gameStateRef.current);
       const selectedBefore = before.selectedId;
-      const result = game.applyTap(tileId);
+      const result = applyTap(tileId);
       if (!result) {
         return;
       }
       if (result.accepted && selectedBefore && selectedBefore !== tileId) {
-        game.setPhaseSafe('animating');
-        const fromA = cellOrigin(
-          before.tiles.find(t => t.id === selectedBefore).position,
-          layout,
-        );
-        const fromB = cellOrigin(
-          before.tiles.find(t => t.id === tileId).position,
-          layout,
-        );
-        await motion.animateSwap(
-          game.boardRef.current,
+        setPhaseSafe('animating');
+        const tileA = before.tiles.find(t => t.id === selectedBefore);
+        const tileB = before.tiles.find(t => t.id === tileId);
+        if (!tileA || !tileB) {
+          setPhaseSafe('idle');
+          return;
+        }
+        const fromA = cellOrigin(tileA.position, layout);
+        const fromB = cellOrigin(tileB.position, layout);
+        await animateSwap(
+          gameStateRef.current,
           layout,
           selectedBefore,
           tileId,
@@ -154,32 +194,44 @@ export function PuzzleScreen() {
         return;
       }
       if (result.reason === 'selected') {
-        await motion.animateGrab(tileId);
+        await animateGrab(tileId);
       }
       if (result.reason === 'deselected') {
-        await motion.animateReleaseGrab(tileId);
+        await animateReleaseGrab(tileId);
       }
     },
-    [finishSwapAnimation, game, layout, motion],
+    [
+      animateGrab,
+      animateReleaseGrab,
+      animateSwap,
+      applyTap,
+      canInteract,
+      finishSwapAnimation,
+      gameStateRef,
+      layout,
+      setPhaseSafe,
+    ],
   );
 
   const handleDropTiles = useCallback(
-    async (dragId, targetId) => {
-      if (!game.canInteract) {
+    async (dragId, targetId, finalDrag) => {
+      if (!canInteract) {
         return;
       }
-      const before = cloneBoardSnapshot(game.boardRef.current);
-      const fromA = cellOrigin(
-        before.tiles.find(t => t.id === dragId).position,
-        layout,
-      );
-      const fromB = cellOrigin(
-        before.tiles.find(t => t.id === targetId).position,
-        layout,
-      );
-      game.setPhaseSafe('animating');
-      setDraggingId(null);
-      const result = game.applyDrop(dragId, targetId);
+      setPhaseSafe('animating');
+      const before = cloneBoardSnapshot(gameStateRef.current);
+      const tileBeforeA = before.tiles.find(t => t.id === dragId);
+      const tileBeforeB = before.tiles.find(t => t.id === targetId);
+      if (!tileBeforeA || !tileBeforeB) {
+        setActiveDrag(null);
+        setDraggingId(null);
+        setPhaseSafe('idle');
+        return;
+      }
+      const fromA = cellOrigin(tileBeforeA.position, layout);
+      const fromB = cellOrigin(tileBeforeB.position, layout);
+
+      const result = applyDrop(dragId, targetId);
       if (result && result.accepted) {
         try {
           Vibration.vibrate(12);
@@ -189,56 +241,73 @@ export function PuzzleScreen() {
             hapticError instanceof Error ? hapticError.message : hapticError,
           );
         }
-        await motion.animateSwap(
-          game.boardRef.current,
+        await animateSwap(
+          gameStateRef.current,
           layout,
           dragId,
           targetId,
           fromA,
           fromB,
+          finalDrag,
         );
         AccessibilityInfo.announceForAccessibility('Tiles swapped');
+        setActiveDrag(null);
+        setDraggingId(null);
         await finishSwapAnimation();
       } else {
-        await motion.animateReturn(game.boardRef.current, layout, dragId);
-        game.setPhaseSafe('idle');
+        await animateReturn(gameStateRef.current, layout, dragId);
+        setActiveDrag(null);
+        setDraggingId(null);
+        setPhaseSafe('idle');
       }
     },
-    [finishSwapAnimation, game, layout, motion],
+    [
+      animateReturn,
+      animateSwap,
+      applyDrop,
+      canInteract,
+      finishSwapAnimation,
+      gameStateRef,
+      layout,
+      setActiveDrag,
+      setPhaseSafe,
+    ],
   );
 
   const handleCancelDrag = useCallback(
     async tileId => {
+      setActiveDrag(null);
+      setPhaseSafe('animating');
+      await animateReturn(gameStateRef.current, layout, tileId);
       setDraggingId(null);
-      game.setPhaseSafe('animating');
-      await motion.animateReturn(game.boardRef.current, layout, tileId);
-      game.setPhaseSafe('idle');
+      setPhaseSafe('idle');
     },
-    [game, layout, motion],
+    [animateReturn, gameStateRef, layout, setActiveDrag, setPhaseSafe],
   );
 
   const handleGrabStart = useCallback(
     tileId => {
-      if (!game.canInteract) {
+      if (!canInteract) {
         return;
       }
+      setActiveDrag(tileId);
       setDraggingId(tileId);
-      motion.animateGrab(tileId).catch(grabError => {
+      animateGrab(tileId).catch(grabError => {
         console.warn(
           'Grab animation failed.',
           grabError instanceof Error ? grabError.message : grabError,
         );
       });
     },
-    [game.canInteract, motion],
+    [animateGrab, canInteract, setActiveDrag],
   );
 
-  const {panHandlers} = usePuzzleGestures({
-    board: game.board,
+  const {panHandlers, cancelActive} = usePuzzleGestures({
+    board,
     layout,
-    boardRef,
-    canInteract: game.canInteract,
-    getMotion: motion.getMotion,
+    boardRef: boardViewRef,
+    canInteract,
+    getMotion,
     onTapTile: handleTapTile,
     onDropTiles: handleDropTiles,
     onCancelDrag: handleCancelDrag,
@@ -246,44 +315,76 @@ export function PuzzleScreen() {
     onGrabStart: handleGrabStart,
   });
 
+  // Geometry changes (e.g. screen dimension or orientation change):
+  // safely cancel any active gesture, recalculate layout, and synchronize positions.
+  useEffect(() => {
+    const prev = prevLayoutRef.current;
+    if (prev.boardPx !== layout.boardPx || prev.size !== layout.size) {
+      prevLayoutRef.current = {boardPx: layout.boardPx, size: layout.size};
+      cancelActive();
+      ensureMap(gameStateRef.current);
+      snapToBoard(gameStateRef.current, layout);
+    }
+  }, [cancelActive, ensureMap, gameStateRef, layout, snapToBoard]);
+
   const handleShuffle = useCallback(() => {
-    if (!game.canInteract) {
+    if (!canInteract) {
       return;
     }
     completionGlow.setValue(0);
     checkScale.setValue(0);
     runScramble(Math.random);
-  }, [checkScale, completionGlow, game.canInteract, runScramble]);
+  }, [canInteract, checkScale, completionGlow, runScramble]);
 
   const handleDifficulty = useCallback(
     nextDifficulty => {
-      if (!game.canInteract || nextDifficulty === game.difficulty) {
+      if (!canInteract || nextDifficulty === difficulty) {
         return;
       }
       completionGlow.setValue(0);
       checkScale.setValue(0);
-      motion.stopAll();
-      const solved = game.startNewDifficulty(nextDifficulty);
+      stopAll();
+      const solved = startNewDifficulty(nextDifficulty);
       const nextLayout = createLayout(boardWidth, solved.size);
-      motion.ensureMap(solved);
-      motion.snapToBoard(solved, nextLayout);
+      ensureMap(solved);
+      snapToBoard(solved, nextLayout, {force: true});
       runScramble(Math.random);
     },
-    [boardWidth, checkScale, completionGlow, game, motion, runScramble],
+    [
+      boardWidth,
+      canInteract,
+      checkScale,
+      completionGlow,
+      difficulty,
+      ensureMap,
+      runScramble,
+      snapToBoard,
+      startNewDifficulty,
+      stopAll,
+    ],
   );
 
   const handleNewPuzzle = useCallback(async () => {
     completionGlow.setValue(0);
     checkScale.setValue(0);
-    const previous = cloneBoardSnapshot(game.boardRef.current);
-    game.setPhaseSafe('animating');
-    const next = game.unlockAfterComplete(Math.random);
-    await motion.animateShuffle(previous, next, layout);
-    motion.snapToBoard(next, layout);
-    game.setPhaseSafe('idle');
-  }, [checkScale, completionGlow, game, layout, motion]);
+    const previous = cloneBoardSnapshot(gameStateRef.current);
+    setPhaseSafe('animating');
+    const next = unlockAfterComplete(Math.random);
+    await animateShuffle(previous, next, layout);
+    snapToBoard(next, layout);
+    setPhaseSafe('idle');
+  }, [
+    animateShuffle,
+    checkScale,
+    completionGlow,
+    gameStateRef,
+    layout,
+    setPhaseSafe,
+    snapToBoard,
+    unlockAfterComplete,
+  ]);
 
-  const locked = !game.canInteract || game.phase === 'solved';
+  const locked = !canInteract || phase === 'solved';
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background, paddingTop: insets.top}]}>
@@ -300,31 +401,31 @@ export function PuzzleScreen() {
       </View>
       <View style={[styles.content, {paddingBottom: insets.bottom + spacing.lg}]}>
         <PuzzleHud
-          difficulty={game.difficulty}
-          disabled={!game.canInteract}
-          moveCount={game.board.moveCount}
+          difficulty={difficulty}
+          disabled={!canInteract}
+          moveCount={board.moveCount}
           onSelectDifficulty={handleDifficulty}
           onShuffle={handleShuffle}
         />
         <PuzzleBoard
-          ref={boardRef}
-          board={game.board}
+          ref={boardViewRef}
+          board={board}
           completionGlow={completionGlow}
           draggingId={draggingId}
-          getMotion={motion.getMotion}
+          getMotion={getMotion}
           hoverId={hoverId}
           layout={layout}
           locked={locked}
           onAccessibilityActivate={handleTapTile}
           panHandlers={panHandlers}
-          selectedId={game.board.selectedId}
+          selectedId={board.selectedId}
         />
       </View>
       <PuzzleCompletion
         checkScale={checkScale}
-        moveCount={game.board.moveCount}
+        moveCount={board.moveCount}
         onNewPuzzle={handleNewPuzzle}
-        visible={game.phase === 'solved'}
+        visible={phase === 'solved'}
       />
     </View>
   );

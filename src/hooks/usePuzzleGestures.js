@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef} from 'react';
 import {AppState, PanResponder} from 'react-native';
 import {classifyRelease, tileIdAtBoardPoint} from '../puzzle/dragGesture';
-import {cellCenter, toBoardPoint} from '../puzzle/layout';
+import {cellCenter, cellOrigin, toBoardPoint} from '../puzzle/layout';
 import {TAP_SLOP_PX} from '../puzzle/motionConfig';
 
 /**
@@ -35,25 +35,48 @@ export function usePuzzleGestures({
   const gestureIdRef = useRef(0);
   const appStateRef = useRef(AppState.currentState);
 
-  // Refs for board and layout captured so callbacks inside panResponder
-  // always see the latest values without recreating the responder.
+  // Capture mutable props and callbacks in refs so the PanResponder
+  // instance remains completely stable across renders and gestures.
   const boardSnapshotRef = useRef(board);
   boardSnapshotRef.current = board;
+
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
+  const canInteractRef = useRef(canInteract);
+  canInteractRef.current = canInteract;
+
+  const getMotionRef = useRef(getMotion);
+  getMotionRef.current = getMotion;
+
+  const boardRefRef = useRef(boardRef);
+  boardRefRef.current = boardRef;
+
+  const callbacksRef = useRef({
+    onTapTile,
+    onDropTiles,
+    onCancelDrag,
+    onHoverChange,
+    onGrabStart,
+  });
+  callbacksRef.current = {
+    onTapTile,
+    onDropTiles,
+    onCancelDrag,
+    onHoverChange,
+    onGrabStart,
+  };
+
   const cancelActive = useCallback(() => {
-    // Discard any in-flight measurement so its callback is ignored.
     pendingGrabRef.current = null;
     const active = activeRef.current;
     if (!active) {
       return;
     }
     activeRef.current = null;
-    onHoverChange(null);
-    getMotion(active.tileId).drag.setValue({x: 0, y: 0});
-    onCancelDrag(active.tileId);
-  }, [getMotion, onCancelDrag, onHoverChange]);
+    callbacksRef.current.onHoverChange(null);
+    callbacksRef.current.onCancelDrag(active.tileId);
+  }, []);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
@@ -65,7 +88,6 @@ export function usePuzzleGestures({
     return () => sub.remove();
   }, [cancelActive]);
 
-  // Called from inside measureInWindow callback to finish resolving the grab.
   const resolvePendingGrab = useCallback(
     (bx, by, pending) => {
       const currentBoard = boardSnapshotRef.current;
@@ -84,7 +106,6 @@ export function usePuzzleGestures({
 
       const tileId = tileIdAtBoardPoint(boardPoint, currentBoard, currentLayout);
       if (!tileId) {
-        console.warn('Gesture: touch did not land on a tile.', boardPoint);
         pendingGrabRef.current = null;
         return;
       }
@@ -96,32 +117,35 @@ export function usePuzzleGestures({
       }
 
       const startCenter = cellCenter(tile.position, currentLayout);
+      const origin = cellOrigin(tile.position, currentLayout);
+      const touchOffset = {
+        x: boardPoint.x - origin.x,
+        y: boardPoint.y - origin.y,
+      };
 
-      // Apply all movement that accumulated while measurement was in flight.
-      const motion = getMotion(tileId);
+      const motion = getMotionRef.current(tileId);
       motion.drag.setValue({x: pending.latestDx, y: pending.latestDy});
 
       activeRef.current = {
         tileId,
-        start: boardPoint,
         startCenter,
+        touchOffset,
       };
 
       if (!pending.released) {
-        // Normal case: finger still down — announce the grab.
-        onGrabStart(tileId);
+        callbacksRef.current.onGrabStart(tileId);
         pendingGrabRef.current = null;
         return;
       }
 
-      // Finger already lifted — skip grab animation, go straight to release.
+      // Finger was released while measurement was in flight.
       const end = {
         x: startCenter.x + pending.releaseDx,
         y: startCenter.y + pending.releaseDy,
       };
       const classification = classifyRelease({
         tileId,
-        start: boardPoint,
+        start: startCenter,
         end,
         board: currentBoard,
         layout: currentLayout,
@@ -129,39 +153,48 @@ export function usePuzzleGestures({
       });
 
       activeRef.current = null;
-      onHoverChange(null);
-      motion.drag.setValue({x: 0, y: 0});
+      callbacksRef.current.onHoverChange(null);
       pendingGrabRef.current = null;
 
       if (classification.kind === 'tap') {
-        onTapTile(tileId);
+        motion.drag.setValue({x: 0, y: 0});
+        callbacksRef.current.onTapTile(tileId);
       } else if (classification.kind === 'drop' && classification.targetTileId) {
-        onDropTiles(tileId, classification.targetTileId);
+        callbacksRef.current.onDropTiles(tileId, classification.targetTileId, {
+          dx: pending.releaseDx,
+          dy: pending.releaseDy,
+        });
       } else {
-        onCancelDrag(tileId);
+        callbacksRef.current.onCancelDrag(tileId);
       }
     },
-    [getMotion, onCancelDrag, onDropTiles, onGrabStart, onHoverChange, onTapTile],
+    [],
   );
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => canInteract,
-        onMoveShouldSetPanResponder: () => Boolean(activeRef.current) || Boolean(pendingGrabRef.current),
-        onPanResponderTerminationRequest: () => activeRef.current === null && pendingGrabRef.current === null,
+        onStartShouldSetPanResponder: () => canInteractRef.current,
+        onMoveShouldSetPanResponder: () =>
+          Boolean(activeRef.current) || Boolean(pendingGrabRef.current),
+        onPanResponderTerminationRequest: () =>
+          activeRef.current === null && pendingGrabRef.current === null,
         onShouldBlockNativeResponder: () => true,
 
         onPanResponderGrant: (event, gestureState) => {
-          if (!canInteract) {
+          if (!canInteractRef.current) {
             return;
           }
-          if (!boardRef.current) {
+          if (event.nativeEvent?.touches && event.nativeEvent.touches.length > 1) {
+            cancelActive();
+            return;
+          }
+          const currentBoardRef = boardRefRef.current;
+          if (!currentBoardRef || !currentBoardRef.current) {
             console.warn('Gesture: board ref not available at touch start.');
             return;
           }
 
-          // Stamp this gesture so stale callbacks can be ignored.
           gestureIdRef.current += 1;
           const myId = gestureIdRef.current;
 
@@ -176,9 +209,8 @@ export function usePuzzleGestures({
             releaseDy: 0,
           };
 
-          boardRef.current.measureInWindow((bx, by) => {
+          currentBoardRef.current.measureInWindow((bx, by) => {
             const pending = pendingGrabRef.current;
-            // Reject stale or cancelled callbacks.
             if (!pending || pending.gestureId !== myId) {
               return;
             }
@@ -192,7 +224,11 @@ export function usePuzzleGestures({
         },
 
         onPanResponderMove: (event, gestureState) => {
-          // While measurement is in flight, accumulate movement but don't set drag.
+          if (event.nativeEvent?.touches && event.nativeEvent.touches.length > 1) {
+            cancelActive();
+            return;
+          }
+
           if (pendingGrabRef.current) {
             pendingGrabRef.current.latestDx = gestureState.dx;
             pendingGrabRef.current.latestDy = gestureState.dy;
@@ -203,15 +239,11 @@ export function usePuzzleGestures({
           if (!active) {
             return;
           }
-          if (event.nativeEvent.touches && event.nativeEvent.touches.length > 1) {
-            cancelActive();
-            return;
-          }
 
           const currentBoard = boardSnapshotRef.current;
           const currentLayout = layoutRef.current;
 
-          getMotion(active.tileId).drag.setValue({
+          getMotionRef.current(active.tileId).drag.setValue({
             x: gestureState.dx,
             y: gestureState.dy,
           });
@@ -222,21 +254,20 @@ export function usePuzzleGestures({
           };
           const classification = classifyRelease({
             tileId: active.tileId,
-            start: active.start,
+            start: active.startCenter,
             end,
             board: currentBoard,
             layout: currentLayout,
             tapSlop: TAP_SLOP_PX,
           });
           if (classification.kind === 'drop' && classification.targetTileId) {
-            onHoverChange(classification.targetTileId);
+            callbacksRef.current.onHoverChange(classification.targetTileId);
           } else {
-            onHoverChange(null);
+            callbacksRef.current.onHoverChange(null);
           }
         },
 
         onPanResponderRelease: (event, gestureState) => {
-          // If measurement is still in flight, record the release; callback handles it.
           if (pendingGrabRef.current) {
             pendingGrabRef.current.released = true;
             pendingGrabRef.current.releaseDx = gestureState.dx;
@@ -246,7 +277,7 @@ export function usePuzzleGestures({
 
           const active = activeRef.current;
           activeRef.current = null;
-          onHoverChange(null);
+          callbacksRef.current.onHoverChange(null);
           if (!active) {
             return;
           }
@@ -254,7 +285,7 @@ export function usePuzzleGestures({
           const currentBoard = boardSnapshotRef.current;
           const currentLayout = layoutRef.current;
 
-          getMotion(active.tileId).drag.setValue({
+          getMotionRef.current(active.tileId).drag.setValue({
             x: gestureState.dx,
             y: gestureState.dy,
           });
@@ -265,7 +296,7 @@ export function usePuzzleGestures({
           };
           const classification = classifyRelease({
             tileId: active.tileId,
-            start: active.start,
+            start: active.startCenter,
             end,
             board: currentBoard,
             layout: currentLayout,
@@ -273,27 +304,25 @@ export function usePuzzleGestures({
           });
 
           if (classification.kind === 'tap') {
-            getMotion(active.tileId).drag.setValue({x: 0, y: 0});
-            onTapTile(active.tileId);
+            getMotionRef.current(active.tileId).drag.setValue({x: 0, y: 0});
+            callbacksRef.current.onTapTile(active.tileId);
             return;
           }
           if (classification.kind === 'drop' && classification.targetTileId) {
-            onDropTiles(active.tileId, classification.targetTileId, active);
+            callbacksRef.current.onDropTiles(active.tileId, classification.targetTileId, {
+              dx: gestureState.dx,
+              dy: gestureState.dy,
+            });
             return;
           }
-          onCancelDrag(active.tileId);
+          callbacksRef.current.onCancelDrag(active.tileId);
         },
 
         onPanResponderTerminate: () => {
           cancelActive();
         },
       }),
-    // The panResponder is created once. Board and layout are accessed via refs
-    // so changes don't require recreation mid-gesture.
-    // canInteract and callbacks are in the dependency array because they control
-    // whether the responder claims new touches.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canInteract, onCancelDrag, onDropTiles, onHoverChange, onGrabStart, onTapTile],
+    [cancelActive, resolvePendingGrab],
   );
 
   return {
