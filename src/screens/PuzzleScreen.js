@@ -3,14 +3,13 @@ import {
   AccessibilityInfo,
   Animated,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   Vibration,
-  useWindowDimensions,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
 import {PuzzleCompletion} from '../components/puzzle/PuzzleCompletion';
@@ -47,38 +46,14 @@ export function PuzzleScreen() {
     [boardWidth, game.board.size],
   );
 
+  // boardRef is passed directly to usePuzzleGestures so it can call
+  // measureInWindow inline on each grant. No cache is maintained here.
   const boardRef = useRef(null);
-  const boardWindowOriginRef = useRef(null);
   const [hoverId, setHoverId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const completionGlow = useRef(new Animated.Value(0)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
   const mountedScrambleRef = useRef(false);
-
-  const measureBoard = useCallback(() => {
-    if (!boardRef.current) {
-      return;
-    }
-    boardRef.current.measureInWindow((x, y) => {
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        boardWindowOriginRef.current = {x, y};
-      }
-    });
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      const timer = setTimeout(measureBoard, 120);
-      return () => clearTimeout(timer);
-    }, [measureBoard]),
-  );
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('transitionEnd', () => {
-      measureBoard();
-    });
-    return unsubscribe;
-  }, [measureBoard, navigation]);
 
   const runScramble = useCallback(
     async random => {
@@ -88,9 +63,8 @@ export function PuzzleScreen() {
       await motion.animateShuffle(previous, next, layout);
       motion.snapToBoard(next, layout);
       game.setPhaseSafe('idle');
-      measureBoard();
     },
-    [game, layout, measureBoard, motion],
+    [game, layout, motion],
   );
 
   useEffect(() => {
@@ -207,6 +181,14 @@ export function PuzzleScreen() {
       setDraggingId(null);
       const result = game.applyDrop(dragId, targetId);
       if (result && result.accepted) {
+        try {
+          Vibration.vibrate(12);
+        } catch (hapticError) {
+          console.warn(
+            'Swap haptic failed.',
+            hapticError instanceof Error ? hapticError.message : hapticError,
+          );
+        }
         await motion.animateSwap(
           game.boardRef.current,
           layout,
@@ -255,8 +237,6 @@ export function PuzzleScreen() {
     board: game.board,
     layout,
     boardRef,
-    boardWindowOriginRef,
-    measureBoard,
     canInteract: game.canInteract,
     getMotion: motion.getMotion,
     onTapTile: handleTapTile,
@@ -289,14 +269,7 @@ export function PuzzleScreen() {
       motion.snapToBoard(solved, nextLayout);
       runScramble(Math.random);
     },
-    [
-      boardWidth,
-      checkScale,
-      completionGlow,
-      game,
-      motion,
-      runScramble,
-    ],
+    [boardWidth, checkScale, completionGlow, game, motion, runScramble],
   );
 
   const handleNewPuzzle = useCallback(async () => {
@@ -325,10 +298,7 @@ export function PuzzleScreen() {
         <Text style={[typography.screenTitle, {color: colors.text}]}>Puzzle lab</Text>
         <View style={styles.back} />
       </View>
-      <ScrollView
-        contentContainerStyle={[styles.content, {paddingBottom: insets.bottom + spacing.lg}]}
-        scrollEnabled={false}
-        showsVerticalScrollIndicator={false}>
+      <View style={[styles.content, {paddingBottom: insets.bottom + spacing.lg}]}>
         <PuzzleHud
           difficulty={game.difficulty}
           disabled={!game.canInteract}
@@ -336,22 +306,20 @@ export function PuzzleScreen() {
           onSelectDifficulty={handleDifficulty}
           onShuffle={handleShuffle}
         />
-        <View onLayout={measureBoard}>
-          <PuzzleBoard
-            ref={boardRef}
-            board={game.board}
-            completionGlow={completionGlow}
-            draggingId={draggingId}
-            getMotion={motion.getMotion}
-            hoverId={hoverId}
-            layout={layout}
-            locked={locked}
-            onAccessibilityActivate={handleTapTile}
-            panHandlers={panHandlers}
-            selectedId={game.board.selectedId}
-          />
-        </View>
-      </ScrollView>
+        <PuzzleBoard
+          ref={boardRef}
+          board={game.board}
+          completionGlow={completionGlow}
+          draggingId={draggingId}
+          getMotion={motion.getMotion}
+          hoverId={hoverId}
+          layout={layout}
+          locked={locked}
+          onAccessibilityActivate={handleTapTile}
+          panHandlers={panHandlers}
+          selectedId={game.board.selectedId}
+        />
+      </View>
       <PuzzleCompletion
         checkScale={checkScale}
         moveCount={game.board.moveCount}
@@ -377,6 +345,7 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   content: {
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
   },
 });

@@ -1,4 +1,4 @@
-import React, {memo} from 'react';
+import React, {memo, useMemo} from 'react';
 import {Animated, Image, StyleSheet, View} from 'react-native';
 import {tileImageOffset} from '../../puzzle/layout';
 import {tileAccessibilityLabel} from '../../puzzle/accessibility';
@@ -19,21 +19,19 @@ function PuzzleTileComponent({
 }) {
   const {colors} = useTheme();
   const imageStyle = tileImageOffset(tile.origin, layout.size, layout);
-  const translate = {
-    transform: [
-      {
-        translateX: dragging
-          ? Animated.add(motion.position.x, motion.drag.x)
-          : motion.position.x,
-      },
-      {
-        translateY: dragging
-          ? Animated.add(motion.position.y, motion.drag.y)
-          : motion.position.y,
-      },
-      {scale: motion.scale},
-    ],
-  };
+
+  // Compute the Animated.add nodes once per motion object.
+  // Since motion is stable (same ref for the lifetime of a tile), these nodes
+  // are created exactly once and never replaced. The native driver stays
+  // attached continuously — including the very first movement frame after grab.
+  const translateX = useMemo(
+    () => Animated.add(motion.position.x, motion.drag.x),
+    [motion],
+  );
+  const translateY = useMemo(
+    () => Animated.add(motion.position.y, motion.drag.y),
+    [motion],
+  );
 
   const showHighlight = selected || hovered;
 
@@ -53,7 +51,13 @@ function PuzzleTileComponent({
           zIndex: dragging ? 20 : showHighlight ? 8 : 1,
           elevation: dragging ? 8 : showHighlight ? 4 : 0,
         },
-        translate,
+        {
+          transform: [
+            {translateX},
+            {translateY},
+            {scale: motion.scale},
+          ],
+        },
       ]}>
       <View style={styles.clip}>
         <Image

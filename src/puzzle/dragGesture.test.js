@@ -79,3 +79,35 @@ test('tileIdAtBoardPoint uses page coordinates via toBoardPoint', () => {
   );
   expect(tileIdAtBoardPoint(boardPoint, board, layout)).toBe('tile-5');
 });
+
+test('tileIdAtBoardPoint hits tile-0 at top-left corner {x:0,y:0}', () => {
+  const board = createSolvedBoard(3);
+  const layout = createLayout(300, 3);
+  expect(tileIdAtBoardPoint({x: 0, y: 0}, board, layout)).toBe('tile-0');
+});
+
+test('tileIdAtBoardPoint hits tile-0 near its bottom-right corner', () => {
+  const board = createSolvedBoard(3);
+  const layout = createLayout(300, 3);
+  // cell-1 is still inside the tile; cell is the gap start
+  expect(
+    tileIdAtBoardPoint({x: layout.cell - 1, y: layout.cell - 1}, board, layout),
+  ).toBe('tile-0');
+});
+
+test('tileIdAtBoardPoint returns null in the gap between tiles', () => {
+  const board = createSolvedBoard(3);
+  const layout = createLayout(300, 3);
+  // layout.cell is the first pixel of the gap
+  expect(tileIdAtBoardPoint({x: layout.cell, y: 0}, board, layout)).toBeNull();
+});
+
+test('tileIdAtBoardPoint hits last tile bottom-right corner', () => {
+  const board = createSolvedBoard(3);
+  const layout = createLayout(300, 3);
+  const lastPos = 8;
+  const origin = cellOrigin(lastPos, layout);
+  expect(
+    tileIdAtBoardPoint({x: origin.x + layout.cell - 1, y: origin.y + layout.cell - 1}, board, layout),
+  ).toBe('tile-8');
+});
