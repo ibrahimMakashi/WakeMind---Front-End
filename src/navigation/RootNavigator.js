@@ -8,6 +8,7 @@ import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
 import {AlarmsScreen} from '../screens/AlarmsScreen';
 import {JournalScreen} from '../screens/JournalScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
+import {PuzzleScreen} from '../screens/PuzzleScreen';
 import {VisionScreen} from '../screens/VisionScreen';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
@@ -68,6 +69,14 @@ export function RootNavigator() {
         <Stack.Screen
           name="Editor"
           component={AlarmEditorScreen}
+          options={{
+            animation: reducedMotion ? 'none' : 'slide_from_right',
+            animationDuration: motionDuration(reducedMotion, 180),
+          }}
+        />
+        <Stack.Screen
+          name="Puzzle"
+          component={PuzzleScreen}
           options={{
             animation: reducedMotion ? 'none' : 'slide_from_right',
             animationDuration: motionDuration(reducedMotion, 180),
