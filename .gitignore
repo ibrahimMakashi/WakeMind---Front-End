@@ -27,6 +27,7 @@ DerivedData
 build/
 .idea
 .gradle
+.gradle-home/
 local.properties
 *.iml
 *.hprof
@@ -34,6 +35,13 @@ local.properties
 *.keystore
 !debug.keystore
 .kotlin/
+
+# Local debug screenshots (not part of the build)
+editor.png
+picker.png
+s1.png
+s2.png
+s3.png
 
 # node.js
 #
