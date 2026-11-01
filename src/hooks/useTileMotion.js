@@ -4,23 +4,19 @@ import {cellOrigin} from '../puzzle/layout';
 import {
   GRAB_DURATION_MS,
   GRAB_SCALE,
+  RETURN_DURATION_MS,
   SHUFFLE_STAGGER_MS,
   SHUFFLE_TOTAL_MS,
   SWAP_DURATION_MS,
 } from '../puzzle/motionConfig';
 import {motionDuration} from '../theme/motion';
 
+const MOTION_EASING = Easing.out(Easing.cubic);
 const SHUFFLE_EASING = Easing.out(Easing.cubic);
 
 function runTiming(value, config) {
   return new Promise(resolve => {
     Animated.timing(value, config).start(({finished}) => resolve(Boolean(finished)));
-  });
-}
-
-function runSpring(value, config) {
-  return new Promise(resolve => {
-    Animated.spring(value, config).start(({finished}) => resolve(Boolean(finished)));
   });
 }
 
@@ -111,11 +107,13 @@ export function useTileMotion(reducedMotion) {
         runTiming(motion.overlay, {
           toValue: 1,
           duration,
+          easing: MOTION_EASING,
           useNativeDriver: true,
         }),
         runTiming(motion.scale, {
           toValue: scaleTo,
           duration,
+          easing: MOTION_EASING,
           useNativeDriver: true,
         }),
       ]).finally(() => {
@@ -133,11 +131,13 @@ export function useTileMotion(reducedMotion) {
         runTiming(motion.overlay, {
           toValue: 0,
           duration,
+          easing: MOTION_EASING,
           useNativeDriver: true,
         }),
         runTiming(motion.scale, {
           toValue: 1,
           duration,
+          easing: MOTION_EASING,
           useNativeDriver: true,
         }),
       ]);
@@ -154,21 +154,46 @@ export function useTileMotion(reducedMotion) {
       }
       activeAnimationTilesRef.current.add(tileId);
       const target = cellOrigin(tile.position, layout);
-      const duration = motionDuration(reducedMotion, SWAP_DURATION_MS);
-      return runTiming(motion.drag, {
-        toValue: {x: 0, y: 0},
-        duration,
-        useNativeDriver: true,
-      })
+      const duration = motionDuration(reducedMotion, RETURN_DURATION_MS);
+      if (duration === 0) {
+        motion.position.setValue(target);
+        motion.drag.setValue({x: 0, y: 0});
+        motion.scale.setValue(1);
+        motion.overlay.setValue(0);
+        activeAnimationTilesRef.current.delete(tileId);
+        return Promise.resolve(true);
+      }
+      return Promise.all([
+        runTiming(motion.drag, {
+          toValue: {x: 0, y: 0},
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+        runTiming(motion.scale, {
+          toValue: 1,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+        runTiming(motion.overlay, {
+          toValue: 0,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      ])
         .then(() => {
-          motion.position.setValue({x: target.x, y: target.y});
-          return animateReleaseGrab(tileId);
+          motion.position.setValue(target);
+          motion.drag.setValue({x: 0, y: 0});
+          motion.scale.setValue(1);
+          motion.overlay.setValue(0);
         })
         .finally(() => {
           activeAnimationTilesRef.current.delete(tileId);
         });
     },
-    [animateReleaseGrab, getMotion, reducedMotion],
+    [getMotion, reducedMotion],
   );
 
   const animateSwap = useCallback(
@@ -192,15 +217,21 @@ export function useTileMotion(reducedMotion) {
         motionB.position.setValue(toB);
         motionA.drag.setValue({x: 0, y: 0});
         motionB.drag.setValue({x: 0, y: 0});
+        motionA.scale.setValue(1);
+        motionA.overlay.setValue(0);
+        motionB.scale.setValue(1);
+        motionB.overlay.setValue(0);
         activeAnimationTilesRef.current.delete(tileIdA);
         activeAnimationTilesRef.current.delete(tileIdB);
-        return animateReleaseGrab(tileIdA);
+        return Promise.resolve(true);
       }
 
-      // If tile A was dropped from a drag gesture, its visual position is already
-      // fromPosA + finalDragA (or motionA.position + motionA.drag).
-      // We animate tile A smoothly into its target cell toA without resetting drag to 0 beforehand.
-      let animTaskA;
+      // Parallel coordinated settling:
+      // Tile A animates from drag offset to destination cell slot,
+      // simultaneously scaling back to 1 and fading overlay to 0.
+      // Tile B animates to its destination cell slot simultaneously.
+      const anims = [];
+
       if (
         finalDragA &&
         Number.isFinite(finalDragA.dx) &&
@@ -208,43 +239,88 @@ export function useTileMotion(reducedMotion) {
       ) {
         motionA.position.setValue(fromPosA);
         motionA.drag.setValue({x: finalDragA.dx, y: finalDragA.dy});
-        animTaskA = runSpring(motionA.drag, {
-          toValue: {x: toA.x - fromPosA.x, y: toA.y - fromPosA.y},
-          useNativeDriver: true,
-          speed: 20,
-          bounciness: 6,
-        }).then(() => {
-          motionA.position.setValue(toA);
-          motionA.drag.setValue({x: 0, y: 0});
-        });
+        anims.push(
+          runTiming(motionA.drag, {
+            toValue: {x: toA.x - fromPosA.x, y: toA.y - fromPosA.y},
+            duration,
+            easing: MOTION_EASING,
+            useNativeDriver: true,
+          }),
+        );
       } else {
         motionA.position.setValue(fromPosA);
         motionA.drag.setValue({x: 0, y: 0});
-        animTaskA = runSpring(motionA.position, {
-          toValue: toA,
-          useNativeDriver: true,
-          speed: 20,
-          bounciness: 6,
-        });
+        anims.push(
+          runTiming(motionA.position, {
+            toValue: toA,
+            duration,
+            easing: MOTION_EASING,
+            useNativeDriver: true,
+          }),
+        );
       }
+
+      anims.push(
+        runTiming(motionA.scale, {
+          toValue: 1,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      );
+      anims.push(
+        runTiming(motionA.overlay, {
+          toValue: 0,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      );
 
       motionB.position.setValue(fromPosB);
       motionB.drag.setValue({x: 0, y: 0});
-      const animTaskB = runSpring(motionB.position, {
-        toValue: toB,
-        useNativeDriver: true,
-        speed: 20,
-        bounciness: 6,
-      });
+      anims.push(
+        runTiming(motionB.position, {
+          toValue: toB,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      );
+      anims.push(
+        runTiming(motionB.scale, {
+          toValue: 1,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      );
+      anims.push(
+        runTiming(motionB.overlay, {
+          toValue: 0,
+          duration,
+          easing: MOTION_EASING,
+          useNativeDriver: true,
+        }),
+      );
 
-      return Promise.all([animTaskA, animTaskB])
-        .then(() => animateReleaseGrab(tileIdA))
+      return Promise.all(anims)
+        .then(() => {
+          motionA.position.setValue(toA);
+          motionA.drag.setValue({x: 0, y: 0});
+          motionA.scale.setValue(1);
+          motionA.overlay.setValue(0);
+          motionB.position.setValue(toB);
+          motionB.drag.setValue({x: 0, y: 0});
+          motionB.scale.setValue(1);
+          motionB.overlay.setValue(0);
+        })
         .finally(() => {
           activeAnimationTilesRef.current.delete(tileIdA);
           activeAnimationTilesRef.current.delete(tileIdB);
         });
     },
-    [animateReleaseGrab, getMotion, reducedMotion],
+    [getMotion, reducedMotion],
   );
 
   const animateShuffle = useCallback(

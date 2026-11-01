@@ -2,6 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  Image,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {AppIcon} from '../components/AppIcon';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
 import {PuzzleCompletion} from '../components/puzzle/PuzzleCompletion';
 import {PuzzleHud} from '../components/puzzle/PuzzleHud';
@@ -24,6 +27,9 @@ import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
 import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
 
+const SAMPLE_IMAGE = require('../assets/puzzle/sample.png');
+const BOARD_PADDING = 10;
+
 function cloneBoardSnapshot(board) {
   return {
     ...board,
@@ -36,8 +42,22 @@ export function PuzzleScreen() {
   const insets = useSafeAreaInsets();
   const {colors, typography} = useTheme();
   const reducedMotion = usePrefersReducedMotion();
-  const {width} = useWindowDimensions();
-  const boardWidth = width - spacing.md * 2;
+  const {width, height} = useWindowDimensions();
+
+  // Responsive board sizing: fits comfortably without scrolling
+  const maxBoardHeight = Math.max(260, height - (insets.top + insets.bottom + 260));
+  const outerBoardSize = Math.floor(Math.min(width - spacing.md * 2, maxBoardHeight, 380));
+  const gridPx = Math.max(200, outerBoardSize - BOARD_PADDING * 2);
+
+  const getGridGap = useCallback(size => {
+    if (size === 5) {
+      return 4;
+    }
+    if (size === 4) {
+      return 5;
+    }
+    return 6;
+  }, []);
 
   const {
     board,
@@ -69,18 +89,33 @@ export function PuzzleScreen() {
   } = useTileMotion(reducedMotion);
 
   const layout = useMemo(
-    () => createLayout(boardWidth, board.size),
-    [boardWidth, board.size],
+    () => createLayout(gridPx, board.size, getGridGap(board.size)),
+    [gridPx, board.size, getGridGap],
   );
 
   const boardViewRef = useRef(null);
   const [hoverId, setHoverId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const completionGlow = useRef(new Animated.Value(0)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
   const mountedScrambleRef = useRef(false);
   const initialSetupDoneRef = useRef(false);
   const prevLayoutRef = useRef({boardPx: layout.boardPx, size: layout.size});
+
+  // Real game timer
+  const isTimerActive = phase !== 'solved' && board.moveCount > 0;
+  useEffect(() => {
+    if (!isTimerActive) {
+      return;
+    }
+    const timerInterval = setInterval(() => {
+      setElapsedSeconds(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timerInterval);
+  }, [isTimerActive]);
 
   const runScramble = useCallback(
     async random => {
@@ -141,8 +176,8 @@ export function PuzzleScreen() {
         Animated.spring(checkScale, {
           toValue: 1,
           useNativeDriver: true,
-          speed: 18,
-          bounciness: reducedMotion ? 0 : 6,
+          speed: 22,
+          bounciness: reducedMotion ? 0 : 4,
         }),
       ]).start();
     } else {
@@ -331,6 +366,7 @@ export function PuzzleScreen() {
     if (!canInteract) {
       return;
     }
+    setElapsedSeconds(0);
     completionGlow.setValue(0);
     checkScale.setValue(0);
     runScramble(Math.random);
@@ -341,22 +377,24 @@ export function PuzzleScreen() {
       if (!canInteract || nextDifficulty === difficulty) {
         return;
       }
+      setElapsedSeconds(0);
       completionGlow.setValue(0);
       checkScale.setValue(0);
       stopAll();
       const solved = startNewDifficulty(nextDifficulty);
-      const nextLayout = createLayout(boardWidth, solved.size);
+      const nextLayout = createLayout(gridPx, solved.size, getGridGap(solved.size));
       ensureMap(solved);
       snapToBoard(solved, nextLayout, {force: true});
       runScramble(Math.random);
     },
     [
-      boardWidth,
       canInteract,
       checkScale,
       completionGlow,
       difficulty,
       ensureMap,
+      getGridGap,
+      gridPx,
       runScramble,
       snapToBoard,
       startNewDifficulty,
@@ -365,6 +403,7 @@ export function PuzzleScreen() {
   );
 
   const handleNewPuzzle = useCallback(async () => {
+    setElapsedSeconds(0);
     completionGlow.setValue(0);
     checkScale.setValue(0);
     const previous = cloneBoardSnapshot(gameStateRef.current);
@@ -388,28 +427,62 @@ export function PuzzleScreen() {
 
   return (
     <View style={[styles.root, {backgroundColor: colors.background, paddingTop: insets.top}]}>
+      {/* Top Navigation Header */}
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => navigation.goBack()}
-          style={styles.back}>
-          <Text style={[typography.bodyStrong, {color: colors.textSoft}]}>Back</Text>
+          style={({pressed}) => [
+            styles.headerButton,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+            pressed && styles.buttonPressed,
+          ]}>
+          <AppIcon color={colors.text} name="arrow-left" size={20} />
         </Pressable>
-        <Text style={[typography.screenTitle, {color: colors.text}]}>Puzzle lab</Text>
-        <View style={styles.back} />
+
+        <View style={styles.titleWrap}>
+          <Text style={[typography.screenTitle, styles.titleText, {color: colors.text}]}>
+            Puzzle lab
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Preview reference image"
+          accessibilityHint="Shows the complete reference artwork"
+          onPress={() => setPreviewVisible(true)}
+          style={({pressed}) => [
+            styles.headerButton,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+            pressed && styles.buttonPressed,
+          ]}>
+          <AppIcon color={colors.accent} name="eye-outline" size={20} />
+        </Pressable>
       </View>
-      <View style={[styles.content, {paddingBottom: insets.bottom + spacing.lg}]}>
+
+      {/* Main Content Area */}
+      <View style={[styles.content, {paddingBottom: insets.bottom + spacing.md}]}>
         <PuzzleHud
           difficulty={difficulty}
           disabled={!canInteract}
+          elapsedSeconds={elapsedSeconds}
           moveCount={board.moveCount}
+          onPreview={() => setPreviewVisible(true)}
           onSelectDifficulty={handleDifficulty}
           onShuffle={handleShuffle}
         />
+
         <PuzzleBoard
           ref={boardViewRef}
           board={board}
+          boardPadding={BOARD_PADDING}
           completionGlow={completionGlow}
           draggingId={draggingId}
           getMotion={getMotion}
@@ -420,13 +493,83 @@ export function PuzzleScreen() {
           panHandlers={panHandlers}
           selectedId={board.selectedId}
         />
+
+        <Text style={[typography.caption, styles.hintText, {color: colors.muted}]}>
+          Drag to swap tiles • Tap two tiles to swap
+        </Text>
       </View>
+
+      {/* Solved Completion Modal */}
       <PuzzleCompletion
         checkScale={checkScale}
         moveCount={board.moveCount}
         onNewPuzzle={handleNewPuzzle}
         visible={phase === 'solved'}
       />
+
+      {/* Reference Image Preview Modal */}
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setPreviewVisible(false)}
+        transparent
+        visible={previewVisible}>
+        <Pressable
+          accessibilityLabel="Close preview"
+          onPress={() => setPreviewVisible(false)}
+          style={styles.modalBackdrop}>
+          <Pressable
+            onPress={e => e.stopPropagation()}
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                maxWidth: Math.min(width - 48, 360),
+              },
+            ]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderLeft}>
+                <AppIcon color={colors.accent} name="image-outline" size={18} />
+                <Text style={[typography.cardHeading, styles.modalTitle, {color: colors.text}]}>
+                  REFERENCE ARTWORK
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+                onPress={() => setPreviewVisible(false)}
+                style={({pressed}) => [
+                  styles.modalCloseButton,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                  pressed && styles.buttonPressed,
+                ]}>
+                <AppIcon color={colors.textSoft} name="close" size={18} />
+              </Pressable>
+            </View>
+
+            <View style={styles.modalImageContainer}>
+              <Image
+                resizeMode="cover"
+                source={SAMPLE_IMAGE}
+                style={[
+                  styles.modalImage,
+                  {
+                    width: Math.min(width - 80, 320),
+                    height: Math.min(width - 80, 320),
+                  },
+                ]}
+              />
+            </View>
+
+            <Text style={[typography.caption, styles.modalFooterText, {color: colors.muted}]}>
+              Tap anywhere to dismiss
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -442,11 +585,79 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  back: {
-    minWidth: 64,
+  headerButton: {
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  buttonPressed: {
+    opacity: 0.7,
+  },
+  titleWrap: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  titleText: {
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   content: {
     alignItems: 'center',
     paddingHorizontal: spacing.md,
+  },
+  hintText: {
+    letterSpacing: 0.3,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  modalBackdrop: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  modalCard: {
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: spacing.md,
+    width: '100%',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    width: '100%',
+  },
+  modalHeaderLeft: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  modalTitle: {
+    letterSpacing: 1.2,
+  },
+  modalCloseButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  modalImageContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalFooterText: {
+    letterSpacing: 0.4,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
 });

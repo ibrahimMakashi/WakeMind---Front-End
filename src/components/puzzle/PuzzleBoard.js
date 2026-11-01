@@ -15,22 +15,27 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
     locked,
     onAccessibilityActivate,
     completionGlow,
+    boardPadding = 10,
+    tileRadius,
   },
   ref,
 ) {
   const {colors} = useTheme();
-  const rootRef = useRef(null);
+  const gridRef = useRef(null);
+
+  const effectiveTileRadius =
+    tileRadius ?? (layout.size === 5 ? 6 : layout.size === 4 ? 8 : 10);
 
   useImperativeHandle(
     ref,
     () => ({
       measureInWindow: cb => {
         if (
-          rootRef.current &&
-          typeof rootRef.current.measureInWindow === 'function' &&
-          !rootRef.current.measureInWindow._isMockFunction
+          gridRef.current &&
+          typeof gridRef.current.measureInWindow === 'function' &&
+          !gridRef.current.measureInWindow._isMockFunction
         ) {
-          rootRef.current.measureInWindow(cb);
+          gridRef.current.measureInWindow(cb);
         } else {
           cb(0, 0);
         }
@@ -48,61 +53,84 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
     [onAccessibilityActivate],
   );
 
+  const outerSize = layout.boardPx + boardPadding * 2;
+
   return (
     <View
-      ref={rootRef}
       collapsable={false}
       {...panHandlers}
       style={[
-        styles.board,
+        styles.outerContainer,
         {
-          width: layout.boardPx,
-          height: layout.boardPx,
+          width: outerSize,
+          height: outerSize,
+          padding: boardPadding,
           backgroundColor: colors.surfaceDeep,
           borderColor: colors.border,
         },
       ]}>
-      <Animated.View
-        pointerEvents="none"
+      <View
+        ref={gridRef}
+        collapsable={false}
         style={[
-          styles.glow,
+          styles.innerGrid,
           {
-            opacity: completionGlow,
-            borderColor: colors.accent,
-            shadowColor: colors.accent,
+            width: layout.boardPx,
+            height: layout.boardPx,
           },
-        ]}
-      />
-      {board.tiles.map(tile => (
-        <PuzzleTile
-          key={tile.id}
-          dragging={draggingId === tile.id}
-          hovered={hoverId === tile.id}
-          layout={layout}
-          locked={locked}
-          motion={getMotion(tile.id)}
-          onAccessibilityActivate={() => handleA11y(tile.id)}
-          selected={selectedId === tile.id}
-          tile={tile}
+        ]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.glow,
+            {
+              opacity: completionGlow,
+              borderColor: colors.accent,
+              shadowColor: colors.accent,
+              borderRadius: effectiveTileRadius,
+            },
+          ]}
         />
-      ))}
+        {board.tiles.map(tile => (
+          <PuzzleTile
+            key={tile.id}
+            dragging={draggingId === tile.id}
+            hovered={hoverId === tile.id}
+            layout={layout}
+            locked={locked}
+            motion={getMotion(tile.id)}
+            onAccessibilityActivate={() => handleA11y(tile.id)}
+            selected={selectedId === tile.id}
+            tile={tile}
+            tileRadius={effectiveTileRadius}
+          />
+        ))}
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  board: {
+  outerContainer: {
     alignSelf: 'center',
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  innerGrid: {
     overflow: 'visible',
+    position: 'relative',
   },
   glow: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 12,
     borderWidth: 2,
     shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.8,
     shadowRadius: 16,
+    zIndex: 30,
   },
 });

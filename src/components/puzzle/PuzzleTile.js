@@ -16,6 +16,7 @@ function PuzzleTileComponent({
   dragging,
   locked,
   onAccessibilityActivate,
+  tileRadius = 8,
 }) {
   const {colors} = useTheme();
   const imageStyle = tileImageOffset(tile.origin, layout.size, layout);
@@ -54,6 +55,7 @@ function PuzzleTileComponent({
         {
           width: layout.cell,
           height: layout.cell,
+          borderRadius: tileRadius,
         },
         {
           transform: [
@@ -63,7 +65,7 @@ function PuzzleTileComponent({
           ],
         },
       ]}>
-      <View style={styles.clip}>
+      <View style={[styles.clip, {borderRadius: tileRadius}]}>
         <Image
           fadeDuration={0}
           source={SAMPLE_IMAGE}
@@ -83,6 +85,7 @@ function PuzzleTileComponent({
         style={[
           styles.overlay,
           {
+            borderRadius: tileRadius,
             borderColor: colors.accent,
             borderWidth: HOVER_BORDER_WIDTH,
             opacity: motion.overlay,
@@ -94,7 +97,13 @@ function PuzzleTileComponent({
       {showHighlight && !dragging ? (
         <View
           pointerEvents="none"
-          style={[styles.hoverRing, {borderColor: colors.accent}]}
+          style={[
+            styles.hoverRing,
+            {
+              borderRadius: tileRadius,
+              borderColor: colors.accent,
+            },
+          ]}
         />
       ) : null}
     </Animated.View>
@@ -111,6 +120,7 @@ function propsEqual(prev, next) {
     prev.locked === next.locked &&
     prev.layout.cell === next.layout.cell &&
     prev.layout.size === next.layout.size &&
+    prev.tileRadius === next.tileRadius &&
     prev.motion === next.motion
   );
 }
@@ -132,8 +142,8 @@ const styles = StyleSheet.create({
     zIndex: 8,
   },
   layerDragging: {
-    elevation: 8,
-    zIndex: 20,
+    elevation: 10,
+    zIndex: 25,
   },
   clip: {
     flex: 1,
@@ -144,16 +154,14 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 6,
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.35,
     shadowRadius: 6,
   },
   hoverRing: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 6,
-    borderWidth: 1,
-    opacity: 0.45,
+    borderWidth: 1.5,
+    opacity: 0.7,
   },
   hoverVisible: {
     opacity: 0.35,
