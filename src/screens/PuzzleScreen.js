@@ -5,6 +5,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   Vibration,
@@ -14,20 +15,23 @@ import {
 import {useNavigation} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AppIcon} from '../components/AppIcon';
+import {ArtworkBanner} from '../components/puzzle/ArtworkBanner';
+import {ImageCropEditor} from '../components/puzzle/ImageCropEditor';
+import {ImageGalleryModal} from '../components/puzzle/ImageGalleryModal';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
 import {PuzzleCompletion} from '../components/puzzle/PuzzleCompletion';
 import {PuzzleHud} from '../components/puzzle/PuzzleHud';
 import {spacing} from '../constants/theme';
 import {usePuzzleGame} from '../hooks/usePuzzleGame';
 import {usePuzzleGestures} from '../hooks/usePuzzleGestures';
+import {usePuzzleImage} from '../hooks/usePuzzleImage';
 import {useTileMotion} from '../hooks/useTileMotion';
 import {cellOrigin, createLayout} from '../puzzle/layout';
-import {COMPLETION_GLOW_MS, COMPLETION_HAPTIC_MS} from '../puzzle/motionConfig';
+import {COMPLETION_GLOW_MS, COMPLETION_HAPTIC_MS, TILE_GAP_PX} from '../puzzle/motionConfig';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
 import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
 
-const SAMPLE_IMAGE = require('../assets/puzzle/sample.png');
 const BOARD_PADDING = 10;
 
 function cloneBoardSnapshot(board) {
@@ -45,19 +49,17 @@ export function PuzzleScreen() {
   const {width, height} = useWindowDimensions();
 
   // Responsive board sizing: fits comfortably without scrolling
-  const maxBoardHeight = Math.max(260, height - (insets.top + insets.bottom + 260));
+  const maxBoardHeight = Math.max(260, height - (insets.top + insets.bottom + 290));
   const outerBoardSize = Math.floor(Math.min(width - spacing.md * 2, maxBoardHeight, 380));
   const gridPx = Math.max(200, outerBoardSize - BOARD_PADDING * 2);
 
-  const getGridGap = useCallback(size => {
-    if (size === 5) {
-      return 4;
-    }
-    if (size === 4) {
-      return 5;
-    }
-    return 6;
-  }, []);
+  const {
+    currentImage,
+    loading: imageLoading,
+    selectBundled,
+    chooseFromPhone,
+    confirmCroppedImage,
+  } = usePuzzleImage();
 
   const {
     board,
@@ -89,14 +91,18 @@ export function PuzzleScreen() {
   } = useTileMotion(reducedMotion);
 
   const layout = useMemo(
-    () => createLayout(gridPx, board.size, getGridGap(board.size)),
-    [gridPx, board.size, getGridGap],
+    () => createLayout(gridPx, board.size, TILE_GAP_PX),
+    [gridPx, board.size],
   );
 
   const boardViewRef = useRef(null);
   const [hoverId, setHoverId] = useState(null);
   const [draggingId, setDraggingId] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [galleryVisible, setGalleryVisible] = useState(false);
+  const [cropVisible, setCropVisible] = useState(false);
+  const [pendingCropImage, setPendingCropImage] = useState(null);
+  const [cropProcessing, setCropProcessing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const completionGlow = useRef(new Animated.Value(0)).current;
@@ -104,6 +110,19 @@ export function PuzzleScreen() {
   const mountedScrambleRef = useRef(false);
   const initialSetupDoneRef = useRef(false);
   const prevLayoutRef = useRef({boardPx: layout.boardPx, size: layout.size});
+  const scrollViewRef = useRef(null);
+
+  // Auto-scroll to completion section when puzzle is solved
+  useEffect(() => {
+    if (phase === 'solved') {
+      const scrollTimer = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({animated: true});
+      }, 200);
+      return () => clearTimeout(scrollTimer);
+    } else {
+      scrollViewRef.current?.scrollTo({y: 0, animated: false});
+    }
+  }, [phase]);
 
   // Real game timer
   const isTimerActive = phase !== 'solved' && board.moveCount > 0;
@@ -118,12 +137,12 @@ export function PuzzleScreen() {
   }, [isTimerActive]);
 
   const runScramble = useCallback(
-    async random => {
+    async (random, targetLayout = layout) => {
       setPhaseSafe('animating');
       const previous = cloneBoardSnapshot(gameStateRef.current);
       const next = applyShuffle(random);
-      await animateShuffle(previous, next, layout);
-      snapToBoard(next, layout);
+      await animateShuffle(previous, next, targetLayout);
+      snapToBoard(next, targetLayout, {force: true});
       setPhaseSafe('idle');
     },
     [animateShuffle, applyShuffle, gameStateRef, layout, setPhaseSafe, snapToBoard],
@@ -358,7 +377,7 @@ export function PuzzleScreen() {
       prevLayoutRef.current = {boardPx: layout.boardPx, size: layout.size};
       cancelActive();
       ensureMap(gameStateRef.current);
-      snapToBoard(gameStateRef.current, layout);
+      snapToBoard(gameStateRef.current, layout, {force: true});
     }
   }, [cancelActive, ensureMap, gameStateRef, layout, snapToBoard]);
 
@@ -382,10 +401,11 @@ export function PuzzleScreen() {
       checkScale.setValue(0);
       stopAll();
       const solved = startNewDifficulty(nextDifficulty);
-      const nextLayout = createLayout(gridPx, solved.size, getGridGap(solved.size));
+      const nextLayout = createLayout(gridPx, solved.size, TILE_GAP_PX);
+      prevLayoutRef.current = {boardPx: nextLayout.boardPx, size: nextLayout.size};
       ensureMap(solved);
       snapToBoard(solved, nextLayout, {force: true});
-      runScramble(Math.random);
+      runScramble(Math.random, nextLayout);
     },
     [
       canInteract,
@@ -393,7 +413,6 @@ export function PuzzleScreen() {
       completionGlow,
       difficulty,
       ensureMap,
-      getGridGap,
       gridPx,
       runScramble,
       snapToBoard,
@@ -422,6 +441,85 @@ export function PuzzleScreen() {
     snapToBoard,
     unlockAfterComplete,
   ]);
+
+  // Handle switching to a bundled image
+  const handleSelectBundledImage = useCallback(
+    async id => {
+      setGalleryVisible(false);
+      await selectBundled(id);
+      // Reset game state for fresh image
+      setElapsedSeconds(0);
+      completionGlow.setValue(0);
+      checkScale.setValue(0);
+      stopAll();
+      const solved = startNewDifficulty(difficulty);
+      prevLayoutRef.current = {boardPx: layout.boardPx, size: layout.size};
+      ensureMap(solved);
+      snapToBoard(solved, layout, {force: true});
+      runScramble(Math.random, layout);
+    },
+    [
+      completionGlow,
+      checkScale,
+      difficulty,
+      ensureMap,
+      layout,
+      runScramble,
+      selectBundled,
+      snapToBoard,
+      startNewDifficulty,
+      stopAll,
+    ],
+  );
+
+  // Handle choosing photo from phone
+  const handleChooseFromPhone = useCallback(async () => {
+    const picked = await chooseFromPhone();
+    if (picked && picked.uri) {
+      setGalleryVisible(false);
+      setPendingCropImage(picked);
+      setCropVisible(true);
+    }
+  }, [chooseFromPhone]);
+
+  // Handle confirming square crop
+  const handleConfirmCrop = useCallback(
+    async cropParams => {
+      setCropProcessing(true);
+      try {
+        await confirmCroppedImage(cropParams);
+        setCropProcessing(false);
+        setCropVisible(false);
+        setPendingCropImage(null);
+
+        // Reset puzzle with new custom artwork
+        setElapsedSeconds(0);
+        completionGlow.setValue(0);
+        checkScale.setValue(0);
+        stopAll();
+        const solved = startNewDifficulty(difficulty);
+        prevLayoutRef.current = {boardPx: layout.boardPx, size: layout.size};
+        ensureMap(solved);
+        snapToBoard(solved, layout, {force: true});
+        runScramble(Math.random, layout);
+      } catch (cropError) {
+        setCropProcessing(false);
+        console.warn('Crop confirmation failed', cropError);
+      }
+    },
+    [
+      confirmCroppedImage,
+      completionGlow,
+      checkScale,
+      difficulty,
+      ensureMap,
+      layout,
+      runScramble,
+      snapToBoard,
+      startNewDifficulty,
+      stopAll,
+    ],
+  );
 
   const locked = !canInteract || phase === 'solved';
 
@@ -467,8 +565,21 @@ export function PuzzleScreen() {
         </Pressable>
       </View>
 
-      {/* Main Content Area */}
-      <View style={[styles.content, {paddingBottom: insets.bottom + spacing.md}]}>
+      {/* Main Content Area - Scrollable when solved so completion card is fully accessible */}
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[styles.content, {paddingBottom: insets.bottom + spacing.xl}]}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={phase === 'solved'}
+        showsVerticalScrollIndicator={false}>
+        {/* Artwork Selection Banner */}
+        <ArtworkBanner
+          currentImage={currentImage}
+          disabled={!canInteract}
+          onChangePress={() => setGalleryVisible(true)}
+        />
+
+        {/* Game Status & Controls */}
         <PuzzleHud
           difficulty={difficulty}
           disabled={!canInteract}
@@ -479,6 +590,7 @@ export function PuzzleScreen() {
           onShuffle={handleShuffle}
         />
 
+        {/* Puzzle Board Container */}
         <PuzzleBoard
           ref={boardViewRef}
           board={board}
@@ -487,6 +599,7 @@ export function PuzzleScreen() {
           draggingId={draggingId}
           getMotion={getMotion}
           hoverId={hoverId}
+          imageSource={currentImage.source}
           layout={layout}
           locked={locked}
           onAccessibilityActivate={handleTapTile}
@@ -497,17 +610,40 @@ export function PuzzleScreen() {
         <Text style={[typography.caption, styles.hintText, {color: colors.muted}]}>
           Drag to swap tiles • Tap two tiles to swap
         </Text>
-      </View>
 
-      {/* Solved Completion Modal */}
-      <PuzzleCompletion
-        checkScale={checkScale}
-        moveCount={board.moveCount}
-        onNewPuzzle={handleNewPuzzle}
-        visible={phase === 'solved'}
+        {/* Solved Completion Section */}
+        <PuzzleCompletion
+          checkScale={checkScale}
+          moveCount={board.moveCount}
+          onNewPuzzle={handleNewPuzzle}
+          visible={phase === 'solved'}
+        />
+      </ScrollView>
+
+      {/* Image Gallery Selection Modal */}
+      <ImageGalleryModal
+        currentImageId={currentImage.id}
+        loading={imageLoading}
+        onChooseFromPhone={handleChooseFromPhone}
+        onClose={() => setGalleryVisible(false)}
+        onSelectBundled={handleSelectBundledImage}
+        visible={galleryVisible}
       />
 
-      {/* Reference Image Preview Modal */}
+      {/* Square Crop Editor Modal */}
+      <ImageCropEditor
+        image={pendingCropImage}
+        onCancel={() => {
+          setCropVisible(false);
+          setPendingCropImage(null);
+        }}
+        onChangeImage={handleChooseFromPhone}
+        onConfirmCrop={handleConfirmCrop}
+        processing={cropProcessing}
+        visible={cropVisible}
+      />
+
+      {/* Dynamic Reference Image Preview Modal */}
       <Modal
         animationType="fade"
         onRequestClose={() => setPreviewVisible(false)}
@@ -531,7 +667,7 @@ export function PuzzleScreen() {
               <View style={styles.modalHeaderLeft}>
                 <AppIcon color={colors.accent} name="image-outline" size={18} />
                 <Text style={[typography.cardHeading, styles.modalTitle, {color: colors.text}]}>
-                  REFERENCE ARTWORK
+                  {currentImage?.title ? currentImage.title.toUpperCase() : 'REFERENCE ARTWORK'}
                 </Text>
               </View>
               <Pressable
@@ -553,7 +689,7 @@ export function PuzzleScreen() {
             <View style={styles.modalImageContainer}>
               <Image
                 resizeMode="cover"
-                source={SAMPLE_IMAGE}
+                source={currentImage.source}
                 style={[
                   styles.modalImage,
                   {
@@ -611,7 +747,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     letterSpacing: 0.3,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
   modalBackdrop: {
@@ -654,6 +790,9 @@ const styles = StyleSheet.create({
   modalImageContainer: {
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  modalImage: {
+    borderRadius: 12,
   },
   modalFooterText: {
     letterSpacing: 0.4,

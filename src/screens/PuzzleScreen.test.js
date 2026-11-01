@@ -2,7 +2,8 @@ import React from 'react';
 import {act, create} from 'react-test-renderer';
 import {PuzzleScreen} from './PuzzleScreen';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
-import {cellCenter} from '../puzzle/layout';
+import {PuzzleHud} from '../components/puzzle/PuzzleHud';
+import {cellCenter, cellOrigin} from '../puzzle/layout';
 
 jest.mock('@react-native-vector-icons/material-design-icons', () => 'MaterialDesignIcons');
 
@@ -206,5 +207,43 @@ describe('PuzzleScreen lifecycle & drag regression tests', () => {
     // Offset must still be exactly 10, 0
     expect(activeMotion.drag.x._value).toBe(10);
     expect(activeMotion.drag.y._value).toBe(0);
+  });
+
+  test('switching difficulty cleanly lays out all tiles with the new grid dimensions and coordinates', async () => {
+    let renderer;
+    await act(async () => {
+      renderer = create(<PuzzleScreen />);
+    });
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+    }
+
+    // Switch from easy (3x3) to medium (4x4)
+    const hud = renderer.root.findByType(PuzzleHud);
+    await act(async () => {
+      hud.props.onSelectDifficulty('medium');
+    });
+
+    for (let i = 0; i < 15; i++) {
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+    }
+
+    const boardComponent = renderer.root.findByType(PuzzleBoard);
+    const {board: mediumBoard, layout: mediumLayout, getMotion} = boardComponent.props;
+
+    expect(mediumBoard.size).toBe(4);
+    expect(mediumBoard.tiles.length).toBe(16);
+
+    // Verify each tile is correctly placed at its 4x4 cell origin
+    mediumBoard.tiles.forEach(tile => {
+      const motion = getMotion(tile.id);
+      const expectedOrigin = cellOrigin(tile.position, mediumLayout);
+      expect(motion.position.x._value).toBeCloseTo(expectedOrigin.x, 1);
+      expect(motion.position.y._value).toBeCloseTo(expectedOrigin.y, 1);
+    });
   });
 });

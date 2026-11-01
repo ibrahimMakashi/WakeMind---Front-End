@@ -17,6 +17,7 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
     completionGlow,
     boardPadding = 10,
     tileRadius,
+    imageSource,
   },
   ref,
 ) {
@@ -24,7 +25,7 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
   const gridRef = useRef(null);
 
   const effectiveTileRadius =
-    tileRadius ?? (layout.size === 5 ? 6 : layout.size === 4 ? 8 : 10);
+    tileRadius ?? (layout.size === 5 ? 2 : layout.size === 4 ? 2 : 3);
 
   useImperativeHandle(
     ref,
@@ -53,7 +54,8 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
     [onAccessibilityActivate],
   );
 
-  const outerSize = layout.boardPx + boardPadding * 2;
+  const BORDER_WIDTH = 1.5;
+  const outerSize = layout.boardPx + boardPadding * 2 + BORDER_WIDTH * 2;
 
   return (
     <View
@@ -67,6 +69,7 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
           padding: boardPadding,
           backgroundColor: colors.surfaceDeep,
           borderColor: colors.border,
+          borderWidth: BORDER_WIDTH,
         },
       ]}>
       <View
@@ -103,6 +106,7 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
             selected={selectedId === tile.id}
             tile={tile}
             tileRadius={effectiveTileRadius}
+            imageSource={imageSource}
           />
         ))}
       </View>
@@ -112,10 +116,11 @@ export const PuzzleBoard = forwardRef(function PuzzleBoard(
 
 const styles = StyleSheet.create({
   outerContainer: {
+    alignItems: 'center',
     alignSelf: 'center',
     borderRadius: 22,
-    borderWidth: 1.5,
     elevation: 4,
+    justifyContent: 'center',
     shadowColor: '#000000',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.3,

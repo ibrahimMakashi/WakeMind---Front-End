@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.wakemind.app.alarm.AlarmNotifications
 import com.wakemind.app.alarm.AlarmPackage
+import com.wakemind.app.puzzle.PuzzlePackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -17,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
         packageList =
             PackageList(this).packages.apply {
               add(AlarmPackage())
+              add(PuzzlePackage())
             },
     )
   }

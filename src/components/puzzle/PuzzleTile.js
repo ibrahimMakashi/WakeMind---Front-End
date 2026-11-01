@@ -17,6 +17,7 @@ function PuzzleTileComponent({
   locked,
   onAccessibilityActivate,
   tileRadius = 8,
+  imageSource = SAMPLE_IMAGE,
 }) {
   const {colors} = useTheme();
   const imageStyle = tileImageOffset(tile.origin, layout.size, layout);
@@ -68,7 +69,8 @@ function PuzzleTileComponent({
       <View style={[styles.clip, {borderRadius: tileRadius}]}>
         <Image
           fadeDuration={0}
-          source={SAMPLE_IMAGE}
+          resizeMode="stretch"
+          source={imageSource || SAMPLE_IMAGE}
           style={[
             styles.image,
             {
@@ -121,6 +123,7 @@ function propsEqual(prev, next) {
     prev.layout.cell === next.layout.cell &&
     prev.layout.size === next.layout.size &&
     prev.tileRadius === next.tileRadius &&
+    prev.imageSource === next.imageSource &&
     prev.motion === next.motion
   );
 }
@@ -146,8 +149,9 @@ const styles = StyleSheet.create({
     zIndex: 25,
   },
   clip: {
-    flex: 1,
+    height: '100%',
     overflow: 'hidden',
+    width: '100%',
   },
   image: {
     position: 'absolute',

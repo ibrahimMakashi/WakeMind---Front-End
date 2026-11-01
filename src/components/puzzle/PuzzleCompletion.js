@@ -10,10 +10,17 @@ export function PuzzleCompletion({visible, moveCount, checkScale, onNewPuzzle}) 
     return null;
   }
   return (
-    <View pointerEvents="box-none" style={styles.wrap}>
-      <View style={[styles.card, {backgroundColor: colors.surfaceRaised, borderColor: colors.border}]}>
+    <View style={styles.wrap}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surfaceRaised,
+            borderColor: colors.border,
+          },
+        ]}>
         <Animated.View style={{transform: [{scale: checkScale}]}}>
-          <AppIcon color={colors.accent} name="check-circle" size={40} />
+          <AppIcon color={colors.accent} name="check-circle" size={44} />
         </Animated.View>
         <Text style={[typography.screenTitle, styles.title, {color: colors.text}]}>
           Puzzle complete
@@ -21,7 +28,9 @@ export function PuzzleCompletion({visible, moveCount, checkScale, onNewPuzzle}) 
         <Text style={[typography.body, {color: colors.textSoft}]}>
           Finished in {moveCount} {moveCount === 1 ? 'move' : 'moves'}.
         </Text>
-        <PrimaryButton label="New puzzle" onPress={onNewPuzzle} />
+        <View style={styles.buttonWrap}>
+          <PrimaryButton label="New puzzle" onPress={onNewPuzzle} />
+        </View>
       </View>
     </View>
   );
@@ -29,21 +38,26 @@ export function PuzzleCompletion({visible, moveCount, checkScale, onNewPuzzle}) 
 
 const styles = StyleSheet.create({
   wrap: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.lg,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+    width: '100%',
   },
   card: {
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 20,
+    borderWidth: 1,
     gap: spacing.sm,
-    maxWidth: 320,
+    maxWidth: 340,
     padding: spacing.lg,
     width: '100%',
   },
   title: {
     marginTop: spacing.xs,
+  },
+  buttonWrap: {
+    marginTop: spacing.xs,
+    width: '100%',
   },
 });

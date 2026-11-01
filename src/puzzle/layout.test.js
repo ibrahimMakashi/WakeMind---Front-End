@@ -8,10 +8,12 @@ import {
   tileAtPosition,
   toBoardPoint,
 } from './layout';
+import {TILE_GAP_PX} from './motionConfig';
 
 test('createLayout rounds to whole pixels and fits the grid', () => {
   const layout = createLayout(300, 3);
-  expect(layout.cell).toBe(Math.floor((300 - 4) / 3));
+  const totalGap = TILE_GAP_PX * (3 - 1);
+  expect(layout.cell).toBe(Math.floor((300 - totalGap) / 3));
   expect(layout.boardPx).toBe(layout.cell * 3 + 2 * layout.gap);
   expect(layout.imagePx).toBe(layout.boardPx);
 });
