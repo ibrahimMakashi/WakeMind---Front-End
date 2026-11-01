@@ -66,13 +66,21 @@ internal object AlarmNotifications {
       label: String,
       vibrate: Boolean,
       triggerAtMillis: Long,
+      puzzleImageId: String? = null,
+      puzzleImageType: String? = null,
   ): Intent {
+    val storeAlarm = if (puzzleImageId.isNullOrBlank()) AlarmStore(context).get(alarmId) else null
+    val finalImageId = puzzleImageId ?: storeAlarm?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
+    val finalImageType = puzzleImageType ?: storeAlarm?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
+
     return Intent(context, RingingActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra(AlarmIntents.EXTRA_ALARM_ID, alarmId)
       putExtra(AlarmIntents.EXTRA_LABEL, label)
       putExtra(AlarmIntents.EXTRA_VIBRATE, vibrate)
       putExtra(AlarmIntents.EXTRA_TRIGGER_AT, triggerAtMillis)
+      putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID, finalImageId)
+      putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, finalImageType)
     }
   }
 

@@ -1,9 +1,11 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {findImageById, getDefaultImage} from '../puzzle/imageCatalog';
+import {findImageById, getDefaultImage, resolveImageSource} from '../puzzle/imageCatalog';
 import {
   cropSquareImage,
+  getRecentImages,
   loadSavedImagePreference,
   pickImageFromPhone,
+  recordRecentImage,
   saveImagePreference,
 } from '../puzzle/imageStorage';
 
@@ -18,8 +20,18 @@ export function usePuzzleImage() {
     };
   });
 
+  const [recentImages, setRecentImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const refreshRecents = useCallback(async () => {
+    try {
+      const recents = await getRecentImages();
+      setRecentImages(recents || []);
+    } catch (recentsErr) {
+      console.warn('Failed to load recent puzzle images', recentsErr);
+    }
+  }, []);
 
   // Restore saved image preference on initial mount
   useEffect(() => {
@@ -53,6 +65,16 @@ export function usePuzzleImage() {
         );
       });
 
+    getRecentImages()
+      .then(recents => {
+        if (active && recents) {
+          setRecentImages(recents);
+        }
+      })
+      .catch(recentsErr => {
+        console.warn('Failed to load recent puzzle images', recentsErr);
+      });
+
     return () => {
       active = false;
     };
@@ -74,6 +96,12 @@ export function usePuzzleImage() {
         type: 'bundled',
         title: item.title,
       });
+      const recents = await recordRecentImage({
+        id: item.id,
+        type: 'bundled',
+        title: item.title,
+      });
+      setRecentImages(recents || []);
     } catch (saveErr) {
       console.warn(
         'Failed to save bundled image preference.',
@@ -82,6 +110,41 @@ export function usePuzzleImage() {
     }
     return updated;
   }, []);
+
+  const selectRecent = useCallback(
+    async recentItem => {
+      setError(null);
+      if (!recentItem || !recentItem.id) {
+        return null;
+      }
+      const resolved = resolveImageSource(
+        recentItem.id,
+        recentItem.type,
+        recentItem.uri,
+        recentItem.title,
+      );
+      setCurrentImage(resolved);
+      try {
+        await saveImagePreference({
+          id: resolved.id,
+          type: resolved.type,
+          uri: resolved.uri,
+          title: resolved.title,
+        });
+        const recents = await recordRecentImage({
+          id: resolved.id,
+          type: resolved.type,
+          uri: resolved.uri,
+          title: resolved.title,
+        });
+        setRecentImages(recents || []);
+      } catch (saveErr) {
+        console.warn('Failed to save recent image preference.', saveErr);
+      }
+      return resolved;
+    },
+    [],
+  );
 
   const chooseFromPhone = useCallback(async () => {
     setError(null);
@@ -125,6 +188,13 @@ export function usePuzzleImage() {
         uri: cropped.uri,
         title,
       });
+      const recents = await recordRecentImage({
+        id: cropped.id,
+        type: 'custom',
+        uri: cropped.uri,
+        title,
+      });
+      setRecentImages(recents || []);
       setLoading(false);
       return updated;
     } catch (cropErr) {
@@ -138,13 +208,26 @@ export function usePuzzleImage() {
   return useMemo(
     () => ({
       currentImage,
+      recentImages,
       loading,
       error,
+      refreshRecents,
       selectBundled,
+      selectRecent,
       chooseFromPhone,
       confirmCroppedImage,
       clearError: () => setError(null),
     }),
-    [chooseFromPhone, confirmCroppedImage, currentImage, error, loading, selectBundled],
+    [
+      chooseFromPhone,
+      confirmCroppedImage,
+      currentImage,
+      error,
+      loading,
+      recentImages,
+      refreshRecents,
+      selectBundled,
+      selectRecent,
+    ],
   );
 }

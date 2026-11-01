@@ -9,4 +9,6 @@ internal object AlarmDefaults {
   const val MIN_TEST_OFFSET_SECONDS = 5
   const val MAX_TEST_OFFSET_SECONDS = 300
   const val MAX_LABEL_LENGTH = 80
+  const val DEFAULT_PUZZLE_IMAGE_ID = "moraine-lake"
+  const val DEFAULT_PUZZLE_IMAGE_TYPE = "bundled"
 }

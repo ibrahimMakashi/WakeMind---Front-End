@@ -34,7 +34,6 @@ class PuzzleImageModule(reactContext: ReactApplicationContext) :
     private const val KEY_IMAGE_TYPE = "selected_image_type"
     private const val KEY_IMAGE_URI = "selected_image_uri"
     private const val KEY_IMAGE_TITLE = "selected_image_title"
-    private const val MAX_SAVED_CUSTOM_IMAGES = 4
   }
 
   private var pendingPickPromise: Promise? = null
@@ -274,9 +273,8 @@ class PuzzleImageModule(reactContext: ReactApplicationContext) :
               cropped
             }
 
-        // Save to app-private files directory
+        // Save to app-private files directory (protected from automatic deletion)
         val puzzleDir = File(reactApplicationContext.filesDir, "puzzle_custom").apply { mkdirs() }
-        cleanOldCustomImages(puzzleDir, MAX_SAVED_CUSTOM_IMAGES - 1)
 
         val timestamp = System.currentTimeMillis()
         val outputFile = File(puzzleDir, "puzzle_crop_$timestamp.jpg")
@@ -287,10 +285,25 @@ class PuzzleImageModule(reactContext: ReactApplicationContext) :
 
         val outputUri = "file://" + outputFile.absolutePath
         val imageId = "custom_$timestamp"
+        val customTitle =
+            if (options.hasKey("title")) options.getString("title") ?: "Custom Photo" else "Custom Photo"
+
+        // Register custom image in shared persistent repository
+        PuzzleImageRepository.registerCustomImage(
+            reactApplicationContext,
+            PuzzleImageRecord(
+                id = imageId,
+                type = "custom",
+                title = customTitle,
+                uri = outputUri,
+                lastUsedAt = timestamp,
+            )
+        )
 
         val resultMap = Arguments.createMap()
         resultMap.putString("id", imageId)
         resultMap.putString("uri", outputUri)
+        resultMap.putString("title", customTitle)
         resultMap.putInt("width", targetSize)
         resultMap.putInt("height", targetSize)
         promise.resolve(resultMap)
@@ -301,17 +314,96 @@ class PuzzleImageModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  private fun cleanOldCustomImages(dir: File, keepCount: Int) {
+  @ReactMethod
+  fun getRecentImages(promise: Promise) {
     try {
-      val files = dir.listFiles { f -> f.isFile && f.name.startsWith("puzzle_crop_") }
-      if (files != null && files.size > keepCount) {
-        files.sortBy { it.lastModified() }
-        val toDelete = files.size - keepCount
-        for (i in 0 until toDelete) {
-          files[i].delete()
-        }
+      val recents = PuzzleImageRepository.getRecentImages(reactApplicationContext)
+      val array = Arguments.createArray()
+      recents.forEach { record ->
+        val map = Arguments.createMap()
+        map.putString("id", record.id)
+        map.putString("type", record.type)
+        map.putString("title", record.title)
+        map.putString("uri", record.uri)
+        map.putDouble("lastUsedAt", record.lastUsedAt.toDouble())
+        array.pushMap(map)
       }
-    } catch (_: Exception) {}
+      promise.resolve(array)
+    } catch (e: Exception) {
+      Log.e(NAME, "Failed to read recent images", e)
+      promise.reject("RECENT_READ_FAILED", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun recordRecentImage(params: ReadableMap, promise: Promise) {
+    try {
+      val id = params.getString("id") ?: throw IllegalArgumentException("Missing 'id'")
+      val type = params.getString("type") ?: "bundled"
+      val title = if (params.hasKey("title")) params.getString("title") ?: "" else ""
+      val uri = if (params.hasKey("uri")) params.getString("uri") ?: "" else ""
+
+      PuzzleImageRepository.recordRecent(
+          reactApplicationContext,
+          PuzzleImageRecord(
+              id = id,
+              type = type,
+              title = title,
+              uri = uri,
+              lastUsedAt = System.currentTimeMillis(),
+          )
+      )
+      promise.resolve(true)
+    } catch (e: Exception) {
+      Log.e(NAME, "Failed to record recent image", e)
+      promise.reject("RECORD_RECENT_FAILED", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun getCustomImageById(id: String, promise: Promise) {
+    try {
+      val found = PuzzleImageRepository.getCustomImageById(reactApplicationContext, id)
+      if (found == null) {
+        promise.resolve(null)
+        return
+      }
+      val map = Arguments.createMap()
+      map.putString("id", found.id)
+      map.putString("type", found.type)
+      map.putString("title", found.title)
+      map.putString("uri", found.uri)
+      map.putDouble("lastUsedAt", found.lastUsedAt.toDouble())
+      promise.resolve(map)
+    } catch (e: Exception) {
+      Log.e(NAME, "Failed to retrieve custom image $id", e)
+      promise.reject("CUSTOM_IMAGE_READ_FAILED", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun registerCustomImage(params: ReadableMap, promise: Promise) {
+    try {
+      val id = params.getString("id") ?: throw IllegalArgumentException("Missing 'id'")
+      val title =
+          if (params.hasKey("title")) params.getString("title") ?: "Custom Photo" else "Custom Photo"
+      val uri = params.getString("uri") ?: throw IllegalArgumentException("Missing 'uri'")
+
+      PuzzleImageRepository.registerCustomImage(
+          reactApplicationContext,
+          PuzzleImageRecord(
+              id = id,
+              type = "custom",
+              title = title,
+              uri = uri,
+              lastUsedAt = System.currentTimeMillis(),
+          )
+      )
+      promise.resolve(true)
+    } catch (e: Exception) {
+      Log.e(NAME, "Failed to register custom image", e)
+      promise.reject("REGISTER_CUSTOM_FAILED", e.message, e)
+    }
   }
 
   @ReactMethod

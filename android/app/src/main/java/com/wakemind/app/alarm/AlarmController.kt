@@ -14,6 +14,8 @@ internal object AlarmController {
       enabled: Boolean,
       vibrate: Boolean,
       label: String?,
+      puzzleImageId: String? = null,
+      puzzleImageType: String? = null,
   ): StoredAlarm {
     val store = AlarmStore(context)
     val existing = if (id.isNullOrBlank()) null else store.get(id)
@@ -21,6 +23,18 @@ internal object AlarmController {
       throw IllegalArgumentException("Alarm not found.")
     }
     val now = System.currentTimeMillis()
+    val finalImageId =
+        if (!puzzleImageId.isNullOrBlank()) {
+          puzzleImageId
+        } else {
+          existing?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
+        }
+    val finalImageType =
+        if (!puzzleImageType.isNullOrBlank()) {
+          puzzleImageType
+        } else {
+          existing?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
+        }
     val alarm =
         StoredAlarm(
             id = existing?.id ?: UUID.randomUUID().toString(),
@@ -35,6 +49,8 @@ internal object AlarmController {
             triggerAtMillis =
                 AlarmTime.nextClockTriggerMillis(hour, minute, now, TimeZone.getDefault()),
             createdAtMillis = existing?.createdAtMillis ?: now,
+            puzzleImageId = finalImageId,
+            puzzleImageType = finalImageType,
         )
     store.upsert(alarm)
     try {
@@ -72,6 +88,8 @@ internal object AlarmController {
             sound = AlarmDefaults.SOUND_SYSTEM_ALARM,
             triggerAtMillis = triggerAt,
             createdAtMillis = now,
+            puzzleImageId = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
+            puzzleImageType = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE,
         )
     val store = AlarmStore(context)
     store.upsert(alarm)

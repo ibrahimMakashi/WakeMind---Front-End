@@ -216,6 +216,8 @@ class AlarmRingtoneService : Service() {
             putExtra(AlarmIntents.EXTRA_LABEL, alarm.label)
             putExtra(AlarmIntents.EXTRA_VIBRATE, alarm.vibrate)
             putExtra(AlarmIntents.EXTRA_TRIGGER_AT, alarm.triggerAtMillis)
+            putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID, alarm.puzzleImageId)
+            putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, alarm.puzzleImageType)
           }
       ContextCompat.startForegroundService(context, intent)
     }

@@ -1,3 +1,4 @@
+import {DEFAULT_PUZZLE_IMAGE_ID, DEFAULT_PUZZLE_IMAGE_TYPE} from '../puzzle/imageCatalog';
 import {from24Hour, to24Hour} from './time';
 
 export function initialEditorSelection(hour24, minute) {
@@ -21,7 +22,17 @@ export function applyConfirmedPickerResult(draft, result) {
   };
 }
 
-export function buildSavePayload({alarm, hour12, minute, period, label, vibrate, editing}) {
+export function buildSavePayload({
+  alarm,
+  hour12,
+  minute,
+  period,
+  label,
+  vibrate,
+  editing,
+  puzzleImageId,
+  puzzleImageType,
+}) {
   return {
     id: editing ? alarm.id : undefined,
     hour: to24Hour(hour12, period),
@@ -29,5 +40,7 @@ export function buildSavePayload({alarm, hour12, minute, period, label, vibrate,
     enabled: editing ? alarm.enabled : true,
     vibrate,
     label: label.trim(),
+    puzzleImageId: puzzleImageId || alarm?.puzzleImageId || DEFAULT_PUZZLE_IMAGE_ID,
+    puzzleImageType: puzzleImageType || alarm?.puzzleImageType || DEFAULT_PUZZLE_IMAGE_TYPE,
   };
 }

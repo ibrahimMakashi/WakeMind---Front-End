@@ -10,13 +10,15 @@ import {
   View,
 } from 'react-native';
 import {AppIcon} from '../AppIcon';
-import {DEFAULT_IMAGES} from '../../puzzle/imageCatalog';
+import {DEFAULT_IMAGES, resolveImageSource} from '../../puzzle/imageCatalog';
 import {spacing} from '../../constants/theme';
 import {useTheme} from '../../theme/ThemeProvider';
 
 export function ImageGalleryModal({
   visible,
   currentImageId,
+  recentImages = [],
+  onSelectRecent,
   onSelectBundled,
   onChooseFromPhone,
   onClose,
@@ -48,7 +50,7 @@ export function ImageGalleryModal({
                 Puzzle Artwork
               </Text>
               <Text style={[typography.caption, {color: colors.textSoft}]}>
-                Choose from presets or your phone library
+                Choose from presets, recents, or your phone library
               </Text>
             </View>
 
@@ -71,51 +73,104 @@ export function ImageGalleryModal({
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}>
-            {/* Section: Choose from Phone */}
-            <Pressable
-              accessibilityHint="Opens system photo picker to select a custom picture"
-              accessibilityLabel="Choose from phone gallery"
-              accessibilityRole="button"
-              disabled={loading}
-              onPress={onChooseFromPhone}
-              style={({pressed}) => [
-                styles.customActionCard,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.accent,
-                  borderRadius: radius.md,
-                },
-                pressed && styles.pressed,
-                loading && styles.dimmed,
-              ]}>
-              <View
-                style={[
-                  styles.customIconContainer,
-                  {
-                    backgroundColor: colors.surfaceRaised,
-                    borderColor: colors.border,
-                  },
-                ]}>
-                {loading ? (
-                  <ActivityIndicator color={colors.accent} size="small" />
-                ) : (
-                  <AppIcon color={colors.accent} name="image-plus" size={24} />
-                )}
+            {/* 3.1 Recently Selected Section */}
+            {recentImages && recentImages.length > 0 ? (
+              <View style={styles.recentSection}>
+                <View style={styles.sectionHeadingRow}>
+                  <Text style={[typography.sectionLabel, {color: colors.muted}]}>
+                    RECENTLY SELECTED
+                  </Text>
+                  <Text style={[typography.caption, {color: colors.muted}]}>
+                    {recentImages.length} available
+                  </Text>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.recentScrollRow}>
+                  {recentImages.slice(0, 8).map(item => {
+                    const isSelected = item.id === currentImageId;
+                    const resolved = resolveImageSource(
+                      item.id,
+                      item.type,
+                      item.uri,
+                      item.title,
+                    );
+
+                    return (
+                      <Pressable
+                        key={`recent-${item.id}-${item.timestamp || 0}`}
+                        accessibilityLabel={`Select recent ${item.title || 'photo'}`}
+                        accessibilityRole="button"
+                        accessibilityState={{selected: isSelected}}
+                        onPress={() => {
+                          if (typeof onSelectRecent === 'function') {
+                            onSelectRecent(resolved);
+                          } else if (item.type === 'bundled') {
+                            onSelectBundled(item.id);
+                          }
+                        }}
+                        style={({pressed}) => [
+                          styles.recentItem,
+                          {
+                            backgroundColor: colors.surface,
+                            borderColor: isSelected ? colors.accent : colors.border,
+                            borderRadius: radius.md,
+                          },
+                          isSelected && styles.selectedItemBorder,
+                          pressed && styles.pressed,
+                        ]}>
+                        <View style={styles.recentThumbnailContainer}>
+                          {resolved.source ? (
+                            <Image
+                              fadeDuration={0}
+                              resizeMode="cover"
+                              source={resolved.source}
+                              style={styles.thumbnail}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.placeholderBox,
+                                {backgroundColor: colors.surfaceRaised},
+                              ]}>
+                              <AppIcon color={colors.muted} name="image-outline" size={24} />
+                            </View>
+                          )}
+                          {isSelected ? (
+                            <View
+                              style={[
+                                styles.badge,
+                                {backgroundColor: colors.accent},
+                              ]}>
+                              <AppIcon color={colors.accentText} name="check" size={12} />
+                            </View>
+                          ) : null}
+                        </View>
+
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            typography.caption,
+                            styles.recentItemTitle,
+                            {color: isSelected ? colors.accent : colors.text},
+                          ]}>
+                          {item.title || (item.type === 'custom' ? 'Custom Photo' : 'Artwork')}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[typography.caption, styles.recentItemType, {color: colors.muted}]}>
+                          {item.type === 'custom' ? 'Custom' : 'Preset'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
               </View>
+            ) : null}
 
-              <View style={styles.customActionCopy}>
-                <Text style={[typography.bodyStrong, {color: colors.text}]}>
-                  Choose from Gallery
-                </Text>
-                <Text style={[typography.caption, {color: colors.textSoft}]}>
-                  Select and crop any photograph from your phone
-                </Text>
-              </View>
-
-              <AppIcon color={colors.accent} name="chevron-right" size={22} />
-            </Pressable>
-
-            {/* Section: Default Bundled Images */}
+            {/* 3.2 Default Artwork Section */}
             <View style={styles.sectionHeadingRow}>
               <Text style={[typography.sectionLabel, {color: colors.muted}]}>
                 DEFAULT ARTWORK
@@ -184,6 +239,56 @@ export function ImageGalleryModal({
                 );
               })}
             </View>
+
+            {/* 3.3 Choose from Phone Section */}
+            <View style={[styles.sectionHeadingRow, {marginTop: spacing.lg}]}>
+              <Text style={[typography.sectionLabel, {color: colors.muted}]}>
+                DEVICE PHOTOS
+              </Text>
+            </View>
+
+            <Pressable
+              accessibilityHint="Opens system photo picker to select a custom picture"
+              accessibilityLabel="Choose from phone gallery"
+              accessibilityRole="button"
+              disabled={loading}
+              onPress={onChooseFromPhone}
+              style={({pressed}) => [
+                styles.customActionCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.accent,
+                  borderRadius: radius.md,
+                },
+                pressed && styles.pressed,
+                loading && styles.dimmed,
+              ]}>
+              <View
+                style={[
+                  styles.customIconContainer,
+                  {
+                    backgroundColor: colors.surfaceRaised,
+                    borderColor: colors.border,
+                  },
+                ]}>
+                {loading ? (
+                  <ActivityIndicator color={colors.accent} size="small" />
+                ) : (
+                  <AppIcon color={colors.accent} name="image-plus" size={24} />
+                )}
+              </View>
+
+              <View style={styles.customActionCopy}>
+                <Text style={[typography.bodyStrong, {color: colors.text}]}>
+                  Choose from Gallery
+                </Text>
+                <Text style={[typography.caption, {color: colors.textSoft}]}>
+                  Select and crop any photograph from your phone
+                </Text>
+              </View>
+
+              <AppIcon color={colors.accent} name="chevron-right" size={22} />
+            </Pressable>
           </ScrollView>
         </View>
       </View>
@@ -221,11 +326,45 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing.lg,
   },
+  recentSection: {
+    marginBottom: spacing.lg,
+  },
+  recentScrollRow: {
+    gap: spacing.sm,
+    paddingVertical: 2,
+  },
+  recentItem: {
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    padding: 6,
+    width: 96,
+  },
+  recentThumbnailContainer: {
+    aspectRatio: 1,
+    borderRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+  },
+  recentItemTitle: {
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  recentItemType: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  placeholderBox: {
+    alignItems: 'center',
+    height: '100%',
+    justifyContent: 'center',
+    width: '100%',
+  },
   customActionCard: {
     alignItems: 'center',
     borderWidth: 1.5,
     flexDirection: 'row',
-    marginBottom: spacing.lg,
+    marginTop: spacing.xs,
     padding: spacing.md,
   },
   customIconContainer: {
@@ -241,6 +380,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionHeadingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
   grid: {

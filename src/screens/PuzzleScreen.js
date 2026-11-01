@@ -55,8 +55,10 @@ export function PuzzleScreen() {
 
   const {
     currentImage,
+    recentImages,
     loading: imageLoading,
     selectBundled,
+    selectRecent,
     chooseFromPhone,
     confirmCroppedImage,
   } = usePuzzleImage();
@@ -472,6 +474,35 @@ export function PuzzleScreen() {
     ],
   );
 
+  const handleSelectRecentImage = useCallback(
+    async image => {
+      setGalleryVisible(false);
+      await selectRecent(image);
+      // Reset game state for fresh image
+      setElapsedSeconds(0);
+      completionGlow.setValue(0);
+      checkScale.setValue(0);
+      stopAll();
+      const solved = startNewDifficulty(difficulty);
+      prevLayoutRef.current = {boardPx: layout.boardPx, size: layout.size};
+      ensureMap(solved);
+      snapToBoard(solved, layout, {force: true});
+      runScramble(Math.random, layout);
+    },
+    [
+      checkScale,
+      completionGlow,
+      difficulty,
+      ensureMap,
+      layout,
+      runScramble,
+      selectRecent,
+      snapToBoard,
+      startNewDifficulty,
+      stopAll,
+    ],
+  );
+
   // Handle choosing photo from phone
   const handleChooseFromPhone = useCallback(async () => {
     const picked = await chooseFromPhone();
@@ -627,6 +658,8 @@ export function PuzzleScreen() {
         onChooseFromPhone={handleChooseFromPhone}
         onClose={() => setGalleryVisible(false)}
         onSelectBundled={handleSelectBundledImage}
+        onSelectRecent={handleSelectRecentImage}
+        recentImages={recentImages}
         visible={galleryVisible}
       />
 

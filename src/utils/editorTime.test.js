@@ -55,6 +55,8 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     minute: 0,
     label: 'Wake',
     vibrate: true,
+    puzzleImageId: 'mount-fuji',
+    puzzleImageType: 'bundled',
   };
   const draft = initialEditorSelection(6, 30);
   expect(
@@ -74,6 +76,8 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     enabled: false,
     vibrate: false,
     label: 'Morning',
+    puzzleImageId: 'mount-fuji',
+    puzzleImageType: 'bundled',
   });
 });
 
@@ -96,5 +100,33 @@ test('builds a new-alarm payload without an id and enabled by default', () => {
     enabled: true,
     vibrate: true,
     label: 'Alarm',
+    puzzleImageId: 'moraine-lake',
+    puzzleImageType: 'bundled',
+  });
+});
+
+test('builds save payload with custom puzzle image', () => {
+  const draft = initialEditorSelection(7, 0);
+  expect(
+    buildSavePayload({
+      alarm: null,
+      hour12: draft.hour12,
+      minute: draft.minute,
+      period: draft.period,
+      label: 'Workout',
+      vibrate: true,
+      editing: false,
+      puzzleImageId: 'custom_12345',
+      puzzleImageType: 'custom',
+    }),
+  ).toEqual({
+    id: undefined,
+    hour: 7,
+    minute: 0,
+    enabled: true,
+    vibrate: true,
+    label: 'Workout',
+    puzzleImageId: 'custom_12345',
+    puzzleImageType: 'custom',
   });
 });

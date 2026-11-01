@@ -1,8 +1,13 @@
 import {NativeModules, Platform} from 'react-native';
 import {
+  _resetFallbackStateForTest,
   cropSquareImage,
+  getCustomImageById,
+  getRecentImages,
   loadSavedImagePreference,
   pickImageFromPhone,
+  recordRecentImage,
+  registerCustomImage,
   saveImagePreference,
 } from './imageStorage';
 
@@ -12,6 +17,7 @@ describe('imageStorage', () => {
   afterEach(() => {
     Platform.OS = originalPlatform;
     delete NativeModules.PuzzleImageModule;
+    _resetFallbackStateForTest();
   });
 
   test('falls back gracefully when native module is unavailable', async () => {
@@ -88,5 +94,63 @@ describe('imageStorage', () => {
       title: 'My Custom Photo',
     });
     expect(saved).toBe(true);
+  });
+
+  test('handles recents and custom image lookup in fallback environment', async () => {
+    Platform.OS = 'android';
+    delete NativeModules.PuzzleImageModule;
+
+    const initialRecents = await getRecentImages();
+    expect(initialRecents).toEqual([]);
+
+    await recordRecentImage({
+      id: 'moraine-lake',
+      type: 'bundled',
+      title: 'Moraine Lake',
+    });
+    const updated = await getRecentImages();
+    expect(updated).toHaveLength(1);
+    expect(updated[0].id).toBe('moraine-lake');
+
+    const registered = await registerCustomImage({
+      id: 'custom_999',
+      uri: 'file:///photo.jpg',
+      title: 'Graduation',
+    });
+    expect(registered.id).toBe('custom_999');
+
+    const lookedUp = await getCustomImageById('custom_999');
+    expect(lookedUp.uri).toBe('file:///photo.jpg');
+
+    const notFound = await getCustomImageById('unknown');
+    expect(notFound).toBeNull();
+  });
+
+  test('delegates recents and custom image lookup to native module', async () => {
+    Platform.OS = 'android';
+    const fakeRecents = [{id: 'fuji', type: 'bundled', title: 'Mount Fuji', timestamp: 1000}];
+    NativeModules.PuzzleImageModule = {
+      getRecentImages: jest.fn(async () => fakeRecents),
+      recordRecentImage: jest.fn(async () => fakeRecents),
+      getCustomImageById: jest.fn(async id => (id === 'custom_1' ? {id: 'custom_1', uri: 'file:///1.jpg'} : null)),
+      registerCustomImage: jest.fn(async img => ({...img, type: 'custom'})),
+    };
+
+    const recents = await getRecentImages();
+    expect(recents).toBe(fakeRecents);
+
+    await recordRecentImage({id: 'fuji', type: 'bundled'});
+    expect(NativeModules.PuzzleImageModule.recordRecentImage).toHaveBeenCalledWith({
+      id: 'fuji',
+      type: 'bundled',
+      uri: '',
+      title: '',
+    });
+
+    const custom = await getCustomImageById('custom_1');
+    expect(custom.uri).toBe('file:///1.jpg');
+
+    const registered = await registerCustomImage({id: 'custom_2', uri: 'file:///2.jpg'});
+    expect(registered.id).toBe('custom_2');
   });
 });

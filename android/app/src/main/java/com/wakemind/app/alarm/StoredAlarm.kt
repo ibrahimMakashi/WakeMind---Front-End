@@ -14,6 +14,8 @@ internal data class StoredAlarm(
     val sound: String,
     val triggerAtMillis: Long,
     val createdAtMillis: Long,
+    val puzzleImageId: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
+    val puzzleImageType: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE,
 ) {
   fun toJson(): JSONObject {
     return JSONObject()
@@ -28,10 +30,14 @@ internal data class StoredAlarm(
         .put("sound", sound)
         .put("triggerAtMillis", triggerAtMillis)
         .put("createdAtMillis", createdAtMillis)
+        .put("puzzleImageId", puzzleImageId)
+        .put("puzzleImageType", puzzleImageType)
   }
 
   companion object {
     fun fromJson(json: JSONObject): StoredAlarm {
+      val rawImageId = json.optString("puzzleImageId", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID)
+      val rawImageType = json.optString("puzzleImageType", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE)
       return StoredAlarm(
           id = requiredString(json, "id"),
           hour = requiredInt(json, "hour"),
@@ -44,6 +50,8 @@ internal data class StoredAlarm(
           sound = requiredString(json, "sound"),
           triggerAtMillis = requiredLong(json, "triggerAtMillis"),
           createdAtMillis = requiredLong(json, "createdAtMillis"),
+          puzzleImageId = if (rawImageId.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID else rawImageId,
+          puzzleImageType = if (rawImageType.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE else rawImageType,
       )
     }
 

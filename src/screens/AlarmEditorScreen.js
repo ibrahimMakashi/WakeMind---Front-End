@@ -1,10 +1,13 @@
-import {useCallback, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {Alert, Pressable, ScrollView, StyleSheet, Text} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
 import {EditorHeader} from '../components/EditorHeader';
 import {EditorTimeCard} from '../components/EditorTimeCard';
+import {AlarmArtworkCard} from '../components/puzzle/AlarmArtworkCard';
+import {ImageCropEditor} from '../components/puzzle/ImageCropEditor';
+import {ImageGalleryModal} from '../components/puzzle/ImageGalleryModal';
 import {RepeatRoutineCard} from '../components/RepeatRoutineCard';
 import {ScreenContainer} from '../components/ScreenContainer';
 import {SettingsDivider, SettingsRow} from '../components/SettingsRow';
@@ -14,6 +17,13 @@ import {
   DEFAULT_MINUTE,
 } from '../constants/alarm';
 import {spacing} from '../constants/theme';
+import {usePuzzleImageLibrary} from '../hooks/usePuzzleImageLibrary';
+import {
+  DEFAULT_PUZZLE_IMAGE_ID,
+  DEFAULT_PUZZLE_IMAGE_TYPE,
+  resolveImageSource,
+} from '../puzzle/imageCatalog';
+import {cropSquareImage, pickImageFromPhone} from '../puzzle/imageStorage';
 import {deleteAlarm, saveAlarm} from '../services/alarmService';
 import {showRadialTimePicker} from '../services/timePickerService';
 import {useTheme} from '../theme/ThemeProvider';
@@ -49,7 +59,43 @@ function AlarmEditorForm({alarm}) {
   const [deleting, setDeleting] = useState(false);
   const [pickingTime, setPickingTime] = useState(false);
   const [error, setError] = useState('');
-  const busy = saving || deleting || pickingTime;
+
+  // Per-alarm puzzle image draft state
+  const initialImage = useMemo(() => {
+    const rawId = alarm?.puzzleImageId || DEFAULT_PUZZLE_IMAGE_ID;
+    const rawType = alarm?.puzzleImageType || DEFAULT_PUZZLE_IMAGE_TYPE;
+    return resolveImageSource(rawId, rawType);
+  }, [alarm?.puzzleImageId, alarm?.puzzleImageType]);
+
+  const [puzzleImage, setPuzzleImage] = useState(initialImage);
+  const [galleryVisible, setGalleryVisible] = useState(false);
+  const [cropVisible, setCropVisible] = useState(false);
+  const [pendingCropImage, setPendingCropImage] = useState(null);
+  const [cropProcessing, setCropProcessing] = useState(false);
+  const [imageActionLoading, setImageActionLoading] = useState(false);
+
+  const {
+    recentImages,
+    recordRecent,
+    resolveAlarmImage,
+  } = usePuzzleImageLibrary();
+
+  // If this alarm has a custom image, resolve its file URI from native repository
+  useEffect(() => {
+    let active = true;
+    if (alarm?.puzzleImageType === 'custom' && alarm?.puzzleImageId) {
+      resolveAlarmImage(alarm.puzzleImageId, 'custom').then(resolved => {
+        if (active && resolved && resolved.source) {
+          setPuzzleImage(resolved);
+        }
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [alarm?.puzzleImageId, alarm?.puzzleImageType, resolveAlarmImage]);
+
+  const busy = saving || deleting || pickingTime || cropProcessing || imageActionLoading;
   const editing = Boolean(alarm && alarm.id);
 
   const openTimePicker = useCallback(async () => {
@@ -76,6 +122,76 @@ function AlarmEditorForm({alarm}) {
     }
   }, [busy, hour12, minute, period, scheme]);
 
+  const handleSelectBundledImage = useCallback(
+    async id => {
+      const resolved = resolveImageSource(id, 'bundled');
+      setPuzzleImage(resolved);
+      setGalleryVisible(false);
+      await recordRecent(resolved);
+    },
+    [recordRecent],
+  );
+
+  const handleSelectRecentImage = useCallback(
+    async selected => {
+      setPuzzleImage(selected);
+      setGalleryVisible(false);
+      await recordRecent(selected);
+    },
+    [recordRecent],
+  );
+
+  const handleChooseFromPhone = useCallback(async () => {
+    setImageActionLoading(true);
+    setError('');
+    try {
+      const picked = await pickImageFromPhone();
+      setImageActionLoading(false);
+      if (picked && !picked.cancelled && picked.uri) {
+        setGalleryVisible(false);
+        setPendingCropImage(picked);
+        setCropVisible(true);
+      }
+    } catch (pickErr) {
+      setImageActionLoading(false);
+      setError(pickErr?.message || 'Photo selection failed.');
+    }
+  }, []);
+
+  const handleConfirmCrop = useCallback(
+    async cropParams => {
+      setCropProcessing(true);
+      setError('');
+      try {
+        const cropped = await cropSquareImage({
+          uri: cropParams.uri,
+          cropX: cropParams.cropX,
+          cropY: cropParams.cropY,
+          cropSize: cropParams.cropSize,
+          targetSize: 1024,
+        });
+
+        const customImage = {
+          id: cropped.id,
+          type: 'custom',
+          title: cropParams.title || 'Custom Photo',
+          uri: cropped.uri,
+          source: {uri: cropped.uri},
+        };
+
+        setPuzzleImage(customImage);
+        setCropProcessing(false);
+        setCropVisible(false);
+        setPendingCropImage(null);
+        await recordRecent(customImage);
+      } catch (cropErr) {
+        setCropProcessing(false);
+        setError(cropErr?.message || 'Cropping image failed.');
+      }
+    },
+    [recordRecent],
+  );
+
   async function onSave() {
     if (busy) {
       return;
@@ -92,6 +208,8 @@ function AlarmEditorForm({alarm}) {
           label,
           vibrate,
           editing,
+          puzzleImageId: puzzleImage.id,
+          puzzleImageType: puzzleImage.type,
         }),
       );
       try {
@@ -168,6 +286,11 @@ function AlarmEditorForm({alarm}) {
           period={period}
         />
         <RepeatRoutineCard />
+        <AlarmArtworkCard
+          currentImage={puzzleImage}
+          disabled={busy}
+          onChangePress={() => setGalleryVisible(true)}
+        />
         <SurfaceCard style={styles.settings}>
           <SettingsRow
             icon="bell-outline"
@@ -210,6 +333,31 @@ function AlarmEditorForm({alarm}) {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      {/* Gallery Modal */}
+      <ImageGalleryModal
+        currentImageId={puzzleImage.id}
+        loading={imageActionLoading}
+        onChooseFromPhone={handleChooseFromPhone}
+        onClose={() => setGalleryVisible(false)}
+        onSelectBundled={handleSelectBundledImage}
+        onSelectRecent={handleSelectRecentImage}
+        recentImages={recentImages}
+        visible={galleryVisible}
+      />
+
+      {/* Square Crop Editor */}
+      <ImageCropEditor
+        image={pendingCropImage}
+        onCancel={() => {
+          setCropVisible(false);
+          setPendingCropImage(null);
+        }}
+        onChangeImage={handleChooseFromPhone}
+        onConfirmCrop={handleConfirmCrop}
+        processing={cropProcessing}
+        visible={cropVisible}
+      />
     </ScreenContainer>
   );
 }
