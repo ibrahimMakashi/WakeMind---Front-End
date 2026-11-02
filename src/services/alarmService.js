@@ -1,8 +1,7 @@
 import {NativeModules, Platform} from 'react-native';
 
-const AlarmModule = NativeModules.AlarmModule;
-
 function requireAndroidModule() {
+  const AlarmModule = NativeModules.AlarmModule;
   if (Platform.OS !== 'android' || !AlarmModule) {
     throw new Error('The alarm engine is only implemented on Android.');
   }
@@ -39,4 +38,16 @@ export function openExactAlarmSettings() {
 
 export function openFullScreenIntentSettings() {
   return requireAndroidModule().openFullScreenIntentSettings();
+}
+
+export function stopRinging() {
+  return requireAndroidModule().stopRinging();
+}
+
+export function dismissAlarmAfterPuzzle(alarmId) {
+  return requireAndroidModule().dismissAlarmAfterPuzzle(alarmId);
+}
+
+export function getActiveRingingAlarm() {
+  return requireAndroidModule().getActiveRingingAlarm();
 }

@@ -37,8 +37,21 @@ internal object AlarmNotifications {
       label: String,
       vibrate: Boolean,
       triggerAtMillis: Long,
+      puzzleImageId: String? = null,
+      puzzleImageType: String? = null,
+      difficulty: String? = null,
   ): Notification {
-    val activityIntent = ringingIntent(context, alarmId, label, vibrate, triggerAtMillis)
+    val activityIntent =
+        ringingIntent(
+            context,
+            alarmId,
+            label,
+            vibrate,
+            triggerAtMillis,
+            puzzleImageId,
+            puzzleImageType,
+            difficulty,
+        )
     val pending =
         PendingIntent.getActivity(
             context,

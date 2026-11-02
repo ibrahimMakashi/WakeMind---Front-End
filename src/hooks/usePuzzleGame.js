@@ -71,13 +71,12 @@ export function usePuzzleGame(initialDifficulty = 'easy') {
   );
 
   const startNewDifficulty = useCallback(
-    nextDifficulty => {
-      const nextSize = gridSizeForDifficulty(nextDifficulty);
+    (nextDifficulty, random = Math.random) => {
       setDifficultyState(nextDifficulty);
-      const solved = createSolvedBoard(nextSize);
-      syncBoard(solved);
+      const puzzle = createPuzzleForDifficulty(nextDifficulty, random);
+      syncBoard(puzzle);
       setPhase('idle');
-      return solved;
+      return puzzle;
     },
     [syncBoard],
   );

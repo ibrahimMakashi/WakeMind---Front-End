@@ -127,6 +127,50 @@ class AlarmModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun dismissAlarmAfterPuzzle(alarmId: String, promise: Promise) {
+    try {
+      if (alarmId.isBlank()) {
+        throw IllegalArgumentException("Alarm ID cannot be empty.")
+      }
+      val dismissed = AlarmRingtoneService.dismissAfterPuzzle(reactApplicationContext, alarmId)
+      if (dismissed) {
+        RingingActivity.finishActive()
+      }
+      promise.resolve(dismissed)
+    } catch (error: IllegalArgumentException) {
+      promise.reject("ALARM_VALIDATION", error.message, error)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not dismiss alarm $alarmId.", error)
+      promise.reject("ALARM_DISMISS_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun getActiveRingingAlarm(promise: Promise) {
+    try {
+      val isRinging = AlarmRingtoneService.isRinging
+      val alarmId = AlarmRingtoneService.currentRingingAlarmId
+      if (!isRinging || alarmId == null) {
+        promise.resolve(null)
+        return
+      }
+      val alarm = AlarmStore(reactApplicationContext).get(alarmId)
+      if (alarm != null) {
+        promise.resolve(alarmToMap(alarm))
+      } else {
+        val fallback = Arguments.createMap().apply {
+          putString("id", alarmId)
+          putBoolean("enabled", true)
+        }
+        promise.resolve(fallback)
+      }
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not get active ringing alarm.", error)
+      promise.reject("ACTIVE_ALARM_ERROR", error.message, error)
+    }
+  }
+
+  @ReactMethod
   fun getCapabilityStatus(promise: Promise) {
     try {
       val status = Arguments.createMap()

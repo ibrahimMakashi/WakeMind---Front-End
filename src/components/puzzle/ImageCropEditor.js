@@ -111,11 +111,11 @@ export function ImageCropEditor({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => true,
+        onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponderCapture: () => false,
         onPanResponderTerminationRequest: () => false,
-        onShouldBlockAppendedTouches: () => true,
+        onShouldBlockAppendedTouches: () => false,
 
         onPanResponderGrant: evt => {
           const touches = evt.nativeEvent.touches;

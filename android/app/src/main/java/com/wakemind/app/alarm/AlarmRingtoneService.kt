@@ -41,13 +41,17 @@ class AlarmRingtoneService : Service() {
     val label = intent.getStringExtra(AlarmIntents.EXTRA_LABEL) ?: AlarmDefaults.DEFAULT_LABEL
     val vibrate = intent.getBooleanExtra(AlarmIntents.EXTRA_VIBRATE, true)
     val triggerAt = intent.getLongExtra(AlarmIntents.EXTRA_TRIGGER_AT, System.currentTimeMillis())
-    promoteToForeground(alarmId, label, vibrate, triggerAt)
+    val puzzleImageId = intent.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID)
+    val puzzleImageType = intent.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE)
+    val difficulty = intent.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
+    promoteToForeground(alarmId, label, vibrate, triggerAt, puzzleImageId, puzzleImageType, difficulty)
     if (isRinging && currentAlarmId == alarmId) {
       return START_REDELIVER_INTENT
     }
     try {
       startAlert(vibrate)
       currentAlarmId = alarmId
+      currentRingingAlarmId = alarmId
       isRinging = true
       scheduleSafetyStop()
     } catch (error: Exception) {
@@ -66,6 +70,9 @@ class AlarmRingtoneService : Service() {
       label: String,
       vibrate: Boolean,
       triggerAtMillis: Long,
+      puzzleImageId: String? = null,
+      puzzleImageType: String? = null,
+      difficulty: String? = null,
   ) {
     AlarmNotifications.ensureChannel(this)
     val notification =
@@ -75,6 +82,9 @@ class AlarmRingtoneService : Service() {
             label,
             vibrate,
             triggerAtMillis,
+            puzzleImageId,
+            puzzleImageType,
+            difficulty,
         )
     val type =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -168,6 +178,7 @@ class AlarmRingtoneService : Service() {
     handler.removeCallbacksAndMessages(null)
     releaseAlert()
     isRinging = false
+    currentRingingAlarmId = null
     currentAlarmId = null
     try {
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -207,6 +218,7 @@ class AlarmRingtoneService : Service() {
 
   companion object {
     @Volatile var isRinging: Boolean = false
+    @Volatile var currentRingingAlarmId: String? = null
 
     internal fun start(context: Context, alarm: StoredAlarm) {
       val intent =
@@ -229,6 +241,22 @@ class AlarmRingtoneService : Service() {
             action = AlarmIntents.ACTION_STOP
           }
       context.startService(intent)
+    }
+
+    internal fun dismissAfterPuzzle(context: Context, alarmId: String): Boolean {
+      if (alarmId.isBlank()) {
+        throw IllegalArgumentException("Alarm ID cannot be blank.")
+      }
+      val activeId = currentRingingAlarmId
+      if (!isRinging || activeId == null) {
+        return false
+      }
+      if (activeId != alarmId) {
+        Log.w(ALARM_LOG_TAG, "Dismissal rejected: requested $alarmId but ringing $activeId")
+        return false
+      }
+      stop(context)
+      return true
     }
   }
 }

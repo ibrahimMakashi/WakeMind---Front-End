@@ -11,4 +11,6 @@ internal object AlarmIntents {
   const val EXTRA_PUZZLE_IMAGE_ID = "puzzleImageId"
   const val EXTRA_PUZZLE_IMAGE_TYPE = "puzzleImageType"
   const val EXTRA_DIFFICULTY = "difficulty"
+  const val EXTRA_MODE = "mode"
+  const val MODE_ALARM = "alarm"
 }

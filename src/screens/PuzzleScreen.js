@@ -415,12 +415,12 @@ export function PuzzleScreen() {
       completionGlow.setValue(0);
       checkScale.setValue(0);
       stopAll();
-      const solved = startNewDifficulty(nextDifficulty);
-      const nextLayout = createLayout(gridPx, solved.size, TILE_GAP_PX);
+      const newBoard = startNewDifficulty(nextDifficulty, Math.random);
+      const nextLayout = createLayout(gridPx, newBoard.size, TILE_GAP_PX);
       prevLayoutRef.current = {boardPx: nextLayout.boardPx, size: nextLayout.size};
-      ensureMap(solved);
-      snapToBoard(solved, nextLayout, {force: true});
-      runScramble(Math.random, nextLayout);
+      ensureMap(newBoard);
+      snapToBoard(newBoard, nextLayout, {force: true});
+      setPhaseSafe('idle');
     },
     [
       canInteract,
@@ -429,7 +429,7 @@ export function PuzzleScreen() {
       difficulty,
       ensureMap,
       gridPx,
-      runScramble,
+      setPhaseSafe,
       snapToBoard,
       startNewDifficulty,
       stopAll,
@@ -612,10 +612,11 @@ export function PuzzleScreen() {
       {/* Main Content Area - Scrollable when solved so completion card is fully accessible */}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={[styles.content, {paddingBottom: insets.bottom + spacing.xl}]}
+        contentContainerStyle={[styles.content, {paddingBottom: insets.bottom + spacing.xl + 48}]}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={phase === 'solved'}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        style={styles.scrollArea}>
         {/* Artwork Selection Banner */}
         <ArtworkBanner
           currentImage={activeImage}
@@ -647,7 +648,7 @@ export function PuzzleScreen() {
           layout={layout}
           locked={locked}
           onAccessibilityActivate={handleTapTile}
-          panHandlers={panHandlers}
+          panHandlers={locked ? {} : panHandlers}
           selectedId={board.selectedId}
         />
 
@@ -787,8 +788,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textAlign: 'center',
   },
+  scrollArea: {
+    flex: 1,
+  },
   content: {
     alignItems: 'center',
+    flexGrow: 1,
     paddingHorizontal: spacing.md,
   },
   hintText: {
