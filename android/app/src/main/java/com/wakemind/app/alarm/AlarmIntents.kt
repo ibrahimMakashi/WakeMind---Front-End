@@ -10,4 +10,5 @@ internal object AlarmIntents {
   const val EXTRA_TRIGGER_AT = "triggerAt"
   const val EXTRA_PUZZLE_IMAGE_ID = "puzzleImageId"
   const val EXTRA_PUZZLE_IMAGE_TYPE = "puzzleImageType"
+  const val EXTRA_DIFFICULTY = "difficulty"
 }

@@ -21,7 +21,7 @@ export function EditorTimeCard({
   const {colors, typography, radius} = useTheme();
 
   return (
-    <SurfaceCard style={[styles.card, {borderRadius: radius.lg, overflow: 'hidden'}]}>
+    <SurfaceCard style={[styles.card, {borderRadius: radius.lg}]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Alarm time ${pad2(hour12)} ${pad2(minute)} ${period}. Tap to change.`}
@@ -29,9 +29,10 @@ export function EditorTimeCard({
         disabled={disabled}
         onPress={onPressTime}
         style={({pressed}) => [styles.timeRow, pressed && !disabled && styles.pressed]}>
+        {/* Hours Block */}
         <View style={styles.fieldCol}>
           <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-            <Text style={[typography.editorTimeBlock, {color: colors.text}]}>
+            <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
               {pad2(hour12)}
             </Text>
           </View>
@@ -39,13 +40,17 @@ export function EditorTimeCard({
             HOURS
           </Text>
         </View>
+
+        {/* Colon */}
         <View style={styles.colon}>
           <View style={[styles.dot, {backgroundColor: colors.accent}]} />
           <View style={[styles.dot, {backgroundColor: colors.accent}]} />
         </View>
+
+        {/* Minutes Block */}
         <View style={styles.fieldCol}>
           <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-            <Text style={[typography.editorTimeBlock, {color: colors.text}]}>
+            <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
               {pad2(minute)}
             </Text>
           </View>
@@ -53,36 +58,48 @@ export function EditorTimeCard({
             MINUTES
           </Text>
         </View>
-        <View style={[styles.periodCol, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-          <View
-            style={[
-              styles.periodHalf,
-              period === 'AM' && {backgroundColor: colors.accent, borderRadius: radius.md},
-            ]}>
-            <Text
+
+        {/* AM / PM Toggle Column */}
+        <View style={styles.periodWrapper}>
+          <View style={[styles.periodCol, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
+            <View
               style={[
-                typography.bodyStrong,
-                {color: period === 'AM' ? colors.accentText : colors.muted},
+                styles.periodHalf,
+                period === 'AM' && [styles.periodActive, {backgroundColor: colors.accent, borderRadius: radius.sm}],
               ]}>
-              AM
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.periodHalf,
-              period === 'PM' && {backgroundColor: colors.accent, borderRadius: radius.md},
-            ]}>
-            <Text
+              <Text
+                style={[
+                  typography.bodyStrong,
+                  styles.periodText,
+                  {color: period === 'AM' ? colors.accentText : colors.muted},
+                ]}>
+                AM
+              </Text>
+            </View>
+            <View
               style={[
-                typography.bodyStrong,
-                {color: period === 'PM' ? colors.accentText : colors.muted},
+                styles.periodHalf,
+                period === 'PM' && [styles.periodActive, {backgroundColor: colors.accent, borderRadius: radius.sm}],
               ]}>
-              PM
-            </Text>
+              <Text
+                style={[
+                  typography.bodyStrong,
+                  styles.periodText,
+                  {color: period === 'PM' ? colors.accentText : colors.muted},
+                ]}>
+                PM
+              </Text>
+            </View>
           </View>
+          {/* Spacer to align with HOURS/MINUTES labels */}
+          <Text style={[typography.cardHeading, styles.fieldLabel, styles.invisibleLabel]}>
+            PER
+          </Text>
         </View>
       </Pressable>
+
       <View style={[styles.divider, {backgroundColor: colors.border}]} />
+
       <View style={styles.labelRow}>
         <AppIcon name="pencil" color={colors.accent} size={18} />
         <TextInput
@@ -102,49 +119,74 @@ export function EditorTimeCard({
 
 const styles = StyleSheet.create({
   card: {
+    overflow: 'hidden',
     paddingBottom: spacing.md,
+    paddingTop: spacing.lg,
   },
   timeRow: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   fieldCol: {
     alignItems: 'center',
   },
   block: {
     alignItems: 'center',
+    height: 84,
     justifyContent: 'center',
-    minHeight: 72,
-    minWidth: 72,
-    paddingHorizontal: spacing.sm,
+    minWidth: 84,
+    paddingHorizontal: spacing.md,
+  },
+  timeText: {
+    fontSize: 48,
+    fontWeight: '700',
+    letterSpacing: 1,
+    lineHeight: 56,
   },
   fieldLabel: {
-    marginTop: spacing.xs,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginTop: spacing.sm,
   },
   colon: {
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 28,
+    gap: 8,
+    marginBottom: 24,
     marginHorizontal: spacing.sm,
   },
   dot: {
-    borderRadius: 3,
-    height: 6,
-    width: 6,
+    borderRadius: 3.5,
+    height: 7,
+    width: 7,
+  },
+  periodWrapper: {
+    alignItems: 'center',
+    marginLeft: spacing.sm,
   },
   periodCol: {
-    marginBottom: 28,
-    marginLeft: spacing.sm,
-    minHeight: 72,
-    overflow: 'hidden',
-    width: 44,
+    height: 84,
+    justifyContent: 'space-between',
+    padding: 3,
+    width: 48,
   },
   periodHalf: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
+  },
+  periodActive: {
+    elevation: 2,
+  },
+  periodText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  invisibleLabel: {
+    opacity: 0,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
@@ -154,9 +196,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   labelInput: {
     flex: 1,
+    fontSize: 16,
     minHeight: 44,
     paddingVertical: 0,
   },

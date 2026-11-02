@@ -38,11 +38,15 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     try {
       val rawImageId = optionalString(payload, "puzzleImageId")
       val rawImageType = optionalString(payload, "puzzleImageType")
+      val rawDifficulty = optionalString(payload, "difficulty")
       if (rawImageType != null && rawImageType != "bundled" && rawImageType != "custom") {
         throw IllegalArgumentException("Invalid puzzle image type: $rawImageType")
       }
       if (rawImageId != null && rawImageId.isBlank()) {
         throw IllegalArgumentException("Puzzle image ID cannot be empty.")
+      }
+      if (rawDifficulty != null && rawDifficulty !in setOf("easy", "medium", "hard")) {
+        throw IllegalArgumentException("Invalid difficulty: $rawDifficulty")
       }
       val saved =
           AlarmController.saveClockAlarm(
@@ -55,6 +59,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
               label = optionalString(payload, "label"),
               puzzleImageId = rawImageId,
               puzzleImageType = rawImageType,
+              difficulty = rawDifficulty,
           )
       promise.resolve(alarmToMap(saved))
     } catch (error: AlarmScheduleException) {

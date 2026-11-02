@@ -13,6 +13,7 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({goBack: jest.fn()}),
+  useRoute: () => ({params: {}}),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({

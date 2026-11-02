@@ -12,6 +12,7 @@ export function SettingsRow({
   onSwitchChange,
   disabled,
   badge,
+  showChevron = false,
 }) {
   const {colors, typography, radius} = useTheme();
   return (
@@ -21,7 +22,7 @@ export function SettingsRow({
       </View>
       <View style={styles.copy}>
         <View style={styles.titleRow}>
-          <Text style={[typography.bodyStrong, {color: colors.text}]}>{title}</Text>
+          <Text style={[typography.bodyStrong, styles.titleText, {color: colors.text}]}>{title}</Text>
           {badge ? (
             <View style={[styles.badge, {borderColor: colors.danger}]}>
               <Text style={[typography.caption, styles.badgeText, {color: colors.danger}]}>
@@ -31,7 +32,7 @@ export function SettingsRow({
           ) : null}
         </View>
         {subtitle ? (
-          <Text style={[typography.caption, {color: colors.muted}]}>{subtitle}</Text>
+          <Text style={[typography.caption, styles.subtitleText, {color: colors.muted}]}>{subtitle}</Text>
         ) : null}
       </View>
       <View style={styles.trailing}>
@@ -45,9 +46,16 @@ export function SettingsRow({
             value={switchValue}
           />
         ) : (
-          <Text style={[typography.caption, styles.trailingText, {color: colors.textSoft}]}>
-            {trailing}
-          </Text>
+          <View style={styles.trailingContent}>
+            {trailing ? (
+              <Text style={[typography.caption, styles.trailingText, {color: colors.textSoft}]}>
+                {trailing}
+              </Text>
+            ) : null}
+            {showChevron ? (
+              <AppIcon name="chevron-right" color={colors.muted} size={18} />
+            ) : null}
+          </View>
         )}
       </View>
     </View>
@@ -92,6 +100,18 @@ const styles = StyleSheet.create({
   trailing: {
     alignItems: 'flex-end',
     minWidth: 64,
+  },
+  trailingContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  titleText: {
+    fontSize: 15,
+  },
+  subtitleText: {
+    fontSize: 12,
+    marginTop: 2,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

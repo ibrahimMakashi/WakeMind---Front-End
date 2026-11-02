@@ -32,7 +32,12 @@ export function buildSavePayload({
   editing,
   puzzleImageId,
   puzzleImageType,
+  difficulty,
 }) {
+  const rawDifficulty = difficulty || alarm?.difficulty || 'easy';
+  const validDifficulty =
+    rawDifficulty === 'medium' || rawDifficulty === 'hard' ? rawDifficulty : 'easy';
+
   return {
     id: editing ? alarm.id : undefined,
     hour: to24Hour(hour12, period),
@@ -42,5 +47,6 @@ export function buildSavePayload({
     label: label.trim(),
     puzzleImageId: puzzleImageId || alarm?.puzzleImageId || DEFAULT_PUZZLE_IMAGE_ID,
     puzzleImageType: puzzleImageType || alarm?.puzzleImageType || DEFAULT_PUZZLE_IMAGE_TYPE,
+    difficulty: validDifficulty,
   };
 }

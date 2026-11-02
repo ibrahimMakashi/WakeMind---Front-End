@@ -1,13 +1,14 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {Alert, Pressable, ScrollView, StyleSheet, Text} from 'react-native';
+import {Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
+import {AppIcon} from '../components/AppIcon';
 import {EditorHeader} from '../components/EditorHeader';
 import {EditorTimeCard} from '../components/EditorTimeCard';
-import {AlarmArtworkCard} from '../components/puzzle/AlarmArtworkCard';
 import {ImageCropEditor} from '../components/puzzle/ImageCropEditor';
 import {ImageGalleryModal} from '../components/puzzle/ImageGalleryModal';
+import {WakeUpVisionMissionCard} from '../components/puzzle/WakeUpVisionMissionCard';
 import {RepeatRoutineCard} from '../components/RepeatRoutineCard';
 import {ScreenContainer} from '../components/ScreenContainer';
 import {SettingsDivider, SettingsRow} from '../components/SettingsRow';
@@ -32,7 +33,7 @@ import {
   buildSavePayload,
   initialEditorSelection,
 } from '../utils/editorTime';
-import {soundLabel, to24Hour} from '../utils/time';
+import {to24Hour} from '../utils/time';
 
 export function AlarmEditorScreen() {
   const route = useRoute();
@@ -44,7 +45,7 @@ export function AlarmEditorScreen() {
 function AlarmEditorForm({alarm}) {
   const navigation = useNavigation();
   const {reload} = useAlarms();
-  const {colors, scheme, typography} = useTheme();
+  const {colors, scheme, typography, radius} = useTheme();
   const insets = useSafeAreaInsets();
   const initial = initialEditorSelection(
     alarm ? alarm.hour : DEFAULT_HOUR,
@@ -53,8 +54,9 @@ function AlarmEditorForm({alarm}) {
   const [hour12, setHour12] = useState(initial.hour12);
   const [minute, setMinute] = useState(initial.minute);
   const [period, setPeriod] = useState(initial.period);
-  const [label, setLabel] = useState(alarm ? alarm.label : 'Alarm');
+  const [label, setLabel] = useState(alarm ? alarm.label : 'Vision Grind & Mindset');
   const [vibrate, setVibrate] = useState(alarm ? alarm.vibrate !== false : true);
+  const [difficulty, setDifficulty] = useState(alarm?.difficulty || 'easy');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pickingTime, setPickingTime] = useState(false);
@@ -210,6 +212,7 @@ function AlarmEditorForm({alarm}) {
           editing,
           puzzleImageId: puzzleImage.id,
           puzzleImageType: puzzleImage.type,
+          difficulty,
         }),
       );
       try {
@@ -262,20 +265,26 @@ function AlarmEditorForm({alarm}) {
 
   return (
     <ScreenContainer style={styles.screen} edges={[]}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          {paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl},
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
+      {/* 1. Top Navigation Header (Fixed at top) */}
+      <View style={[styles.headerContainer, {paddingTop: insets.top + spacing.xs}]}>
         <EditorHeader
           onCancel={() => navigation.goBack()}
           onSave={onSave}
           saveDisabled={busy}
-          subtitle="B-DISCIPLINE · VISION LOCK"
+          subtitle="B-DISCIPLINE VISION LOCK"
           title={editing ? 'Edit Alarm' : 'Add Alarm'}
         />
+      </View>
+
+      {/* Form Content Area */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {paddingBottom: insets.bottom + spacing.xl},
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        {/* 2. Alarm Time & Label Card */}
         <EditorTimeCard
           disabled={busy}
           hour12={hour12}
@@ -285,23 +294,32 @@ function AlarmEditorForm({alarm}) {
           onPressTime={openTimePicker}
           period={period}
         />
+
+        {/* 3. Repeat Routine Card */}
         <RepeatRoutineCard />
-        <AlarmArtworkCard
+
+        {/* 4. Wake-Up Vision Mission & Difficulty Card */}
+        <WakeUpVisionMissionCard
           currentImage={puzzleImage}
+          difficulty={difficulty}
           disabled={busy}
-          onChangePress={() => setGalleryVisible(true)}
+          onDifficultyChange={setDifficulty}
+          onReplacePress={() => setGalleryVisible(true)}
         />
-        <SurfaceCard style={styles.settings}>
+
+        {/* 5. Alarm Settings Card */}
+        <SurfaceCard style={[styles.settings, {borderRadius: radius.lg}]}>
           <SettingsRow
             icon="bell-outline"
-            subtitle="System default ringtone"
+            showChevron
+            subtitle="Gentle Rise & Conquer (Gradual)"
             title="Alarm Sound"
-            trailing={soundLabel(alarm ? alarm.sound : 'system-alarm')}
+            trailing="Default"
           />
           <SettingsDivider />
           <SettingsRow
             disabled={busy}
-            icon="vibrate"
+            icon="cellphone-basic"
             onSwitchChange={setVibrate}
             subtitle="Use vibration when the alarm rings"
             switchValue={vibrate}
@@ -316,9 +334,41 @@ function AlarmEditorForm({alarm}) {
             trailing="Not available"
           />
         </SurfaceCard>
+
+        {/* 6. Test Puzzle Wake-Up Screen Action */}
+        <Pressable
+          accessibilityHint="Previews the wake-up puzzle with the currently selected artwork and difficulty"
+          accessibilityLabel="Test puzzle wake-up screen"
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={() => {
+            navigation.navigate('Puzzle', {
+              previewImage: puzzleImage,
+              previewDifficulty: difficulty,
+              isPreview: true,
+            });
+          }}
+          style={({pressed}) => [
+            styles.testButton,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.accent,
+              borderRadius: radius.md,
+            },
+            pressed && styles.pressed,
+            busy && styles.disabled,
+          ]}>
+          <AppIcon color={colors.accent} name="eye-outline" size={18} />
+          <Text style={[typography.bodyStrong, styles.testButtonText, {color: colors.accent}]}>
+            TEST PUZZLE WAKE-UP SCREEN
+          </Text>
+        </Pressable>
+
         {error ? (
           <Text style={[styles.error, {color: colors.error}]}>{error}</Text>
         ) : null}
+
+        {/* 7. Delete Alarm Action (Edit mode only) */}
         {editing ? (
           <Pressable
             accessibilityRole="button"
@@ -334,7 +384,7 @@ function AlarmEditorForm({alarm}) {
         ) : null}
       </ScrollView>
 
-      {/* Gallery Modal */}
+      {/* Image Gallery Selection Modal */}
       <ImageGalleryModal
         currentImageId={puzzleImage.id}
         loading={imageActionLoading}
@@ -346,7 +396,7 @@ function AlarmEditorForm({alarm}) {
         visible={galleryVisible}
       />
 
-      {/* Square Crop Editor */}
+      {/* Square Crop Editor Modal */}
       <ImageCropEditor
         image={pendingCropImage}
         onCancel={() => {
@@ -366,12 +416,32 @@ const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: spacing.md,
   },
+  headerContainer: {
+    paddingBottom: spacing.xs,
+    zIndex: 10,
+  },
   content: {
     flexGrow: 1,
+    paddingTop: spacing.xs,
   },
   settings: {
     marginTop: spacing.md,
     paddingVertical: spacing.xs,
+  },
+  testButton: {
+    alignItems: 'center',
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    marginTop: spacing.lg,
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+  },
+  testButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   error: {
     fontSize: 14,
@@ -381,11 +451,17 @@ const styles = StyleSheet.create({
   },
   deleteHit: {
     alignItems: 'center',
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     minHeight: 44,
     justifyContent: 'center',
   },
   delete: {
     textAlign: 'center',
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

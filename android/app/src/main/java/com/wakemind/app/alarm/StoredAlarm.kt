@@ -38,6 +38,9 @@ internal data class StoredAlarm(
     fun fromJson(json: JSONObject): StoredAlarm {
       val rawImageId = json.optString("puzzleImageId", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID)
       val rawImageType = json.optString("puzzleImageType", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE)
+      val rawDifficulty = json.optString("difficulty", AlarmDefaults.DIFFICULTY_EASY)
+      val finalDifficulty = if (rawDifficulty in setOf("easy", "medium", "hard")) rawDifficulty else AlarmDefaults.DIFFICULTY_EASY
+
       return StoredAlarm(
           id = requiredString(json, "id"),
           hour = requiredInt(json, "hour"),
@@ -46,7 +49,7 @@ internal data class StoredAlarm(
           vibrate = requiredBoolean(json, "vibrate"),
           label = requiredString(json, "label"),
           repeat = requiredString(json, "repeat"),
-          difficulty = requiredString(json, "difficulty"),
+          difficulty = finalDifficulty,
           sound = requiredString(json, "sound"),
           triggerAtMillis = requiredLong(json, "triggerAtMillis"),
           createdAtMillis = requiredLong(json, "createdAtMillis"),

@@ -12,7 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AppIcon} from '../components/AppIcon';
 import {ArtworkBanner} from '../components/puzzle/ArtworkBanner';
@@ -43,6 +43,17 @@ function cloneBoardSnapshot(board) {
 
 export function PuzzleScreen() {
   const navigation = useNavigation();
+  let routeParams = null;
+  try {
+    const route = useRoute();
+    routeParams = route?.params;
+  } catch {
+    routeParams = null;
+  }
+  const previewImage = routeParams?.previewImage;
+  const previewDifficulty = routeParams?.previewDifficulty;
+  const isPreview = Boolean(previewImage || previewDifficulty);
+
   const insets = useSafeAreaInsets();
   const {colors, typography} = useTheme();
   const reducedMotion = usePrefersReducedMotion();
@@ -63,6 +74,8 @@ export function PuzzleScreen() {
     confirmCroppedImage,
   } = usePuzzleImage();
 
+  const activeImage = isPreview && previewImage ? previewImage : currentImage;
+
   const {
     board,
     boardRef: gameStateRef,
@@ -77,7 +90,7 @@ export function PuzzleScreen() {
     markSolved,
     unlockAfterComplete,
     setPhaseSafe,
-  } = usePuzzleGame('easy');
+  } = usePuzzleGame(previewDifficulty || 'easy');
 
   const {
     getMotion,
@@ -575,7 +588,7 @@ export function PuzzleScreen() {
 
         <View style={styles.titleWrap}>
           <Text style={[typography.screenTitle, styles.titleText, {color: colors.text}]}>
-            Puzzle lab
+            {isPreview ? 'Wake-Up Test' : 'Puzzle lab'}
           </Text>
         </View>
 
@@ -605,8 +618,8 @@ export function PuzzleScreen() {
         showsVerticalScrollIndicator={false}>
         {/* Artwork Selection Banner */}
         <ArtworkBanner
-          currentImage={currentImage}
-          disabled={!canInteract}
+          currentImage={activeImage}
+          disabled={!canInteract || isPreview}
           onChangePress={() => setGalleryVisible(true)}
         />
 
@@ -630,7 +643,7 @@ export function PuzzleScreen() {
           draggingId={draggingId}
           getMotion={getMotion}
           hoverId={hoverId}
-          imageSource={currentImage.source}
+          imageSource={activeImage.source}
           layout={layout}
           locked={locked}
           onAccessibilityActivate={handleTapTile}
@@ -700,7 +713,7 @@ export function PuzzleScreen() {
               <View style={styles.modalHeaderLeft}>
                 <AppIcon color={colors.accent} name="image-outline" size={18} />
                 <Text style={[typography.cardHeading, styles.modalTitle, {color: colors.text}]}>
-                  {currentImage?.title ? currentImage.title.toUpperCase() : 'REFERENCE ARTWORK'}
+                  {activeImage?.title ? activeImage.title.toUpperCase() : 'REFERENCE ARTWORK'}
                 </Text>
               </View>
               <Pressable
@@ -722,7 +735,7 @@ export function PuzzleScreen() {
             <View style={styles.modalImageContainer}>
               <Image
                 resizeMode="cover"
-                source={currentImage.source}
+                source={activeImage.source}
                 style={[
                   styles.modalImage,
                   {

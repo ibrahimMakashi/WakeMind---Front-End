@@ -16,6 +16,7 @@ internal object AlarmController {
       label: String?,
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
+      difficulty: String? = null,
   ): StoredAlarm {
     val store = AlarmStore(context)
     val existing = if (id.isNullOrBlank()) null else store.get(id)
@@ -35,6 +36,12 @@ internal object AlarmController {
         } else {
           existing?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
         }
+    val finalDifficulty =
+        if (!difficulty.isNullOrBlank() && difficulty in setOf("easy", "medium", "hard")) {
+          difficulty
+        } else {
+          existing?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
+        }
     val alarm =
         StoredAlarm(
             id = existing?.id ?: UUID.randomUUID().toString(),
@@ -44,7 +51,7 @@ internal object AlarmController {
             vibrate = vibrate,
             label = cleanLabel(label, AlarmDefaults.DEFAULT_LABEL),
             repeat = AlarmDefaults.REPEAT_ONCE,
-            difficulty = AlarmDefaults.DIFFICULTY_EASY,
+            difficulty = finalDifficulty,
             sound = AlarmDefaults.SOUND_SYSTEM_ALARM,
             triggerAtMillis =
                 AlarmTime.nextClockTriggerMillis(hour, minute, now, TimeZone.getDefault()),

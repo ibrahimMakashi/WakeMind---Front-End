@@ -68,10 +68,12 @@ internal object AlarmNotifications {
       triggerAtMillis: Long,
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
+      difficulty: String? = null,
   ): Intent {
-    val storeAlarm = if (puzzleImageId.isNullOrBlank()) AlarmStore(context).get(alarmId) else null
+    val storeAlarm = if (puzzleImageId.isNullOrBlank() || difficulty.isNullOrBlank()) AlarmStore(context).get(alarmId) else null
     val finalImageId = puzzleImageId ?: storeAlarm?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
     val finalImageType = puzzleImageType ?: storeAlarm?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
+    val finalDifficulty = difficulty ?: storeAlarm?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
 
     return Intent(context, RingingActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -81,6 +83,7 @@ internal object AlarmNotifications {
       putExtra(AlarmIntents.EXTRA_TRIGGER_AT, triggerAtMillis)
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID, finalImageId)
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, finalImageType)
+      putExtra(AlarmIntents.EXTRA_DIFFICULTY, finalDifficulty)
     }
   }
 
