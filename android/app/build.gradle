@@ -92,15 +92,21 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword project.hasProperty('MYAPP_UPLOAD_STORE_PASSWORD') ? MYAPP_UPLOAD_STORE_PASSWORD : ''
+                keyAlias project.hasProperty('MYAPP_UPLOAD_KEY_ALIAS') ? MYAPP_UPLOAD_KEY_ALIAS : ''
+                keyPassword project.hasProperty('MYAPP_UPLOAD_KEY_PASSWORD') ? MYAPP_UPLOAD_KEY_PASSWORD : ''
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
@@ -121,5 +127,27 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == 'packageRelease' || task.name == 'validateSigningRelease') {
+        task.doFirst {
+            if (!project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                throw new GradleException(
+                    "Release signing failed: 'MYAPP_UPLOAD_STORE_FILE' is not configured.\n" +
+                    "Please configure MYAPP_UPLOAD_STORE_FILE, MYAPP_UPLOAD_KEY_ALIAS, MYAPP_UPLOAD_STORE_PASSWORD, " +
+                    "and MYAPP_UPLOAD_KEY_PASSWORD in ~/.gradle/gradle.properties."
+                )
+            }
+            def storeFilePath = project.property('MYAPP_UPLOAD_STORE_FILE')
+            def keystoreFile = file(storeFilePath)
+            if (!keystoreFile.exists()) {
+                throw new GradleException(
+                    "Release signing failed: Keystore file '${keystoreFile.absolutePath}' does not exist.\n" +
+                    "Please ensure 'android/app/wakemind-release.keystore' exists or verify the path configured in MYAPP_UPLOAD_STORE_FILE."
+                )
+            }
+        }
     }
 }
