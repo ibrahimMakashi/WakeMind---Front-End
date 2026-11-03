@@ -10,23 +10,33 @@ export const WEEKDAY_CONFIG = [
   {id: 'sun', label: 'S', shortName: 'Sun', fullName: 'Sunday'},
 ];
 
-const WEEKDAY_ORDER = WEEKDAYS.reduce((acc, day, index) => {
-  acc[day] = index;
-  return acc;
-}, {});
-
+/**
+ * Validates, deduplicates, and normalizes weekday array in Monday to Sunday order.
+ * Throws on invalid weekday values.
+ * Null or undefined safely returns [] for backward compatibility with older alarm records.
+ *
+ * @param {string[]|null|undefined} days
+ * @returns {string[]}
+ */
 export function normalizeRepeatDays(days) {
-  if (!Array.isArray(days)) {
+  if (days === null || days === undefined) {
     return [];
   }
-  const unique = Array.from(
-    new Set(
-      days
-        .map(d => (typeof d === 'string' ? d.trim().toLowerCase() : ''))
-        .filter(d => WEEKDAYS.includes(d)),
-    ),
-  );
-  return unique.sort((a, b) => WEEKDAY_ORDER[a] - WEEKDAY_ORDER[b]);
+  if (!Array.isArray(days)) {
+    throw new TypeError('repeatDays must be an array of weekday strings.');
+  }
+  const seen = new Set();
+  for (const item of days) {
+    if (typeof item !== 'string') {
+      throw new TypeError(`Invalid weekday value: ${JSON.stringify(item)}. Must be a string.`);
+    }
+    const normalized = item.trim().toLowerCase();
+    if (!WEEKDAYS.includes(normalized)) {
+      throw new Error(`Invalid weekday: '${item}'. Valid weekdays are ${WEEKDAYS.join(', ')}.`);
+    }
+    seen.add(normalized);
+  }
+  return WEEKDAYS.filter(d => seen.has(d));
 }
 
 export function isWeekdays(normalizedDays) {
@@ -48,7 +58,13 @@ export function isEveryDay(normalizedDays) {
 }
 
 export function formatRepeatSummary(rawDays) {
-  const days = normalizeRepeatDays(rawDays);
+  let days;
+  try {
+    days = normalizeRepeatDays(rawDays);
+  } catch {
+    days = [];
+  }
+
   if (days.length === 0) {
     return 'Once';
   }
@@ -75,7 +91,13 @@ export function formatRepeatSummary(rawDays) {
 }
 
 export function formatRepeatBadge(rawDays) {
-  const days = normalizeRepeatDays(rawDays);
+  let days;
+  try {
+    days = normalizeRepeatDays(rawDays);
+  } catch {
+    days = [];
+  }
+
   if (days.length === 0) {
     return 'Once';
   }

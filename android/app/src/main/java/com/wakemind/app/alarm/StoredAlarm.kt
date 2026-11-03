@@ -20,24 +20,31 @@ internal data class StoredAlarm(
     val repeatDays: List<String> = emptyList(),
 ) {
   fun toJson(): JSONObject {
+    val normalized =
+        try {
+          AlarmTime.normalizeRepeatDays(repeatDays)
+        } catch (_: Exception) {
+          repeatDays
+        }
     val daysArray = JSONArray()
-    repeatDays.forEach { day -> daysArray.put(day) }
+    normalized.forEach { day -> daysArray.put(day) }
 
-    return JSONObject()
-        .put("id", id)
-        .put("hour", hour)
-        .put("minute", minute)
-        .put("enabled", enabled)
-        .put("vibrate", vibrate)
-        .put("label", label)
-        .put("repeat", repeat)
-        .put("difficulty", difficulty)
-        .put("sound", sound)
-        .put("triggerAtMillis", triggerAtMillis)
-        .put("createdAtMillis", createdAtMillis)
-        .put("puzzleImageId", puzzleImageId)
-        .put("puzzleImageType", puzzleImageType)
-        .put("repeatDays", daysArray)
+    val json = JSONObject()
+    json.put("id", id)
+    json.put("hour", hour)
+    json.put("minute", minute)
+    json.put("enabled", enabled)
+    json.put("vibrate", vibrate)
+    json.put("label", label)
+    json.put("repeat", repeat)
+    json.put("difficulty", difficulty)
+    json.put("sound", sound)
+    json.put("triggerAtMillis", triggerAtMillis)
+    json.put("createdAtMillis", createdAtMillis)
+    json.put("puzzleImageId", puzzleImageId)
+    json.put("puzzleImageType", puzzleImageType)
+    json.put("repeatDays", daysArray)
+    return json
   }
 
   companion object {
@@ -50,15 +57,28 @@ internal data class StoredAlarm(
           else AlarmDefaults.DIFFICULTY_EASY
 
       val rawDays = json.optJSONArray("repeatDays")
-      val repeatDaysList = mutableListOf<String>()
-      if (rawDays != null) {
-        for (i in 0 until rawDays.length()) {
-          val day = rawDays.optString(i)
-          if (!day.isNullOrBlank()) {
-            repeatDaysList.add(day.trim().lowercase())
+      val repeatDaysList =
+          if (rawDays != null) {
+            val rawList = mutableListOf<String>()
+            for (i in 0 until rawDays.length()) {
+              val day = rawDays.optString(i)
+              if (!day.isNullOrBlank()) {
+                rawList.add(day)
+              }
+            }
+            // Backward-compatible normalization for stored alarms
+            try {
+              AlarmTime.normalizeRepeatDays(rawList)
+            } catch (_: Exception) {
+              rawList
+                  .filter { AlarmTime.isValidWeekday(it) }
+                  .map { it.trim().lowercase() }
+                  .distinct()
+                  .sortedBy { AlarmTime.ORDERED_WEEKDAYS.indexOf(it) }
+            }
+          } else {
+            emptyList()
           }
-        }
-      }
 
       return StoredAlarm(
           id = requiredString(json, "id"),

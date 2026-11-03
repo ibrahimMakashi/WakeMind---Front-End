@@ -1,5 +1,6 @@
 package com.wakemind.app.alarm
 
+import java.util.Calendar
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -108,6 +109,63 @@ class AlarmTimeTest {
   }
 
   @Test
+  fun schedulesSundayToMondayRollover() {
+    // 2026-10-11 is Sunday
+    val sundayNight = utc(2026, 10, 11, 22, 0)
+    val mondayMorning = AlarmTime.nextWeeklyTriggerMillis(6, 0, listOf("mon"), sundayNight, timeZone)
+    assertEquals(utc(2026, 10, 12, 6, 0), mondayMorning)
+  }
+
+  @Test
+  fun rollsPastSundayTimeToNextSunday() {
+    // 2026-10-11 is Sunday
+    val sundayLate = utc(2026, 10, 11, 14, 0)
+    val nextSunday = AlarmTime.nextWeeklyTriggerMillis(8, 0, listOf("sun"), sundayLate, timeZone)
+    assertEquals(utc(2026, 10, 18, 8, 0), nextSunday)
+  }
+
+  @Test
+  fun schedulesMultipleSelectedDaysInSequence() {
+    // 2026-10-06 is Tuesday
+    val tueNoon = utc(2026, 10, 6, 12, 0)
+    val selectedDays = listOf("tue", "thu", "sat")
+
+    // Past Tuesday noon -> next is Thursday
+    val nextThu = AlarmTime.nextWeeklyTriggerMillis(7, 0, selectedDays, tueNoon, timeZone)
+    assertEquals(utc(2026, 10, 8, 7, 0), nextThu)
+
+    // After Thursday 7am -> next is Saturday
+    val thuAfter = utc(2026, 10, 8, 8, 0)
+    val nextSat = AlarmTime.nextWeeklyTriggerMillis(7, 0, selectedDays, thuAfter, timeZone)
+    assertEquals(utc(2026, 10, 10, 7, 0), nextSat)
+
+    // After Saturday 7am -> rolls around to next Tuesday
+    val satAfter = utc(2026, 10, 10, 9, 0)
+    val nextTue = AlarmTime.nextWeeklyTriggerMillis(7, 0, selectedDays, satAfter, timeZone)
+    assertEquals(utc(2026, 10, 13, 7, 0), nextTue)
+  }
+
+  @Test
+  fun handlesWeeklyTimezoneShiftCorrectly() {
+    val newYork = TimeZone.getTimeZone("America/New_York")
+    // In NY, 2026-10-11 is Sunday.
+    // 22:00 EDT on Sunday in NY is 2026-10-12 02:00 UTC
+    val nySundayNight = Calendar.getInstance(newYork).apply {
+      set(2026, Calendar.OCTOBER, 11, 22, 0, 0)
+      set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val trigger = AlarmTime.nextWeeklyTriggerMillis(6, 30, listOf("mon"), nySundayNight, newYork)
+
+    val expectedNyMonday = Calendar.getInstance(newYork).apply {
+      set(2026, Calendar.OCTOBER, 12, 6, 30, 0)
+      set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    assertEquals(expectedNyMonday, trigger)
+  }
+
+  @Test
   fun rejectsEmptyOrInvalidWeeklyDays() {
     val now = utc(2026, 10, 8, 10, 0)
     assertThrows(IllegalArgumentException::class.java) {
@@ -116,6 +174,12 @@ class AlarmTimeTest {
     assertThrows(IllegalArgumentException::class.java) {
       AlarmTime.nextWeeklyTriggerMillis(7, 0, listOf("invalid"), now, timeZone)
     }
+  }
+
+  @Test
+  fun normalizesAndDeduplicatesWeekdaysInOrder() {
+    val normalized = AlarmTime.normalizeRepeatDays(listOf("fri", "mon", "fri", "wed"))
+    assertEquals(listOf("mon", "wed", "fri"), normalized)
   }
 
   private fun utc(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {

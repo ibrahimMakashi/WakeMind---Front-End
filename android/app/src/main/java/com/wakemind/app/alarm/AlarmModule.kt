@@ -54,15 +54,13 @@ class AlarmModule(reactContext: ReactApplicationContext) :
             val list = mutableListOf<String>()
             if (array != null) {
               for (i in 0 until array.size()) {
-                val d = array.getString(i)?.trim()?.lowercase()
-                if (!d.isNullOrBlank() && AlarmTime.isValidWeekday(d)) {
-                  if (!list.contains(d)) {
-                    list.add(d)
-                  }
+                val d = array.getString(i)
+                if (d != null) {
+                  list.add(d)
                 }
               }
             }
-            list
+            AlarmTime.normalizeRepeatDays(list)
           } else {
             null
           }

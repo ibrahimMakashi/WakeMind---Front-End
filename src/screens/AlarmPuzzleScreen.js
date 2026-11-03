@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Animated,
   BackHandler,
+  Pressable,
   StyleSheet,
   Text,
   Vibration,
@@ -199,7 +200,16 @@ export function AlarmPuzzleScreen({
     mountedScrambleRef.current = true;
     runScramble(Math.random).catch(scrambleError => {
       console.warn('Alarm puzzle scramble failed', scrambleError);
-      setScrambled(true);
+      setScrambled(false);
+      setPhaseSafe('idle');
+    });
+  }, [runScramble, setPhaseSafe]);
+
+  const handleRetryScramble = useCallback(() => {
+    setScrambled(false);
+    runScramble(Math.random).catch(scrambleError => {
+      console.warn('Alarm puzzle scramble retry failed', scrambleError);
+      setScrambled(false);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
@@ -259,12 +269,12 @@ export function AlarmPuzzleScreen({
 
   const finishSwapAnimation = useCallback(async () => {
     snapToBoard(gameStateRef.current, layout);
-    if (checkSolved()) {
+    if (scrambled && checkSolved()) {
       await handleAlarmSolved();
     } else {
       setPhaseSafe('idle');
     }
-  }, [checkSolved, gameStateRef, handleAlarmSolved, layout, setPhaseSafe, snapToBoard]);
+  }, [checkSolved, gameStateRef, handleAlarmSolved, layout, scrambled, setPhaseSafe, snapToBoard]);
 
   const handleTapTile = useCallback(
     async tileId => {
@@ -521,6 +531,18 @@ export function AlarmPuzzleScreen({
         style={styles.progressBar}
       />
 
+      {!scrambled && !isDismissed && (
+        <Pressable
+          accessibilityLabel="Retry scrambling puzzle"
+          accessibilityRole="button"
+          onPress={handleRetryScramble}
+          style={styles.retryWrap}>
+          <Text style={[typography.caption, styles.retryText, {color: colors.accent}]}>
+            Setup incomplete • Tap to retry scramble
+          </Text>
+        </Pressable>
+      )}
+
       {/* Main Puzzle Board Area */}
       <View style={styles.boardWrap}>
         <PuzzleBoard
@@ -635,6 +657,14 @@ const styles = StyleSheet.create({
   progressBar: {
     maxWidth: 380,
     paddingHorizontal: spacing.xs,
+  },
+  retryWrap: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   boardWrap: {
     alignItems: 'center',

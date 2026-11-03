@@ -186,14 +186,14 @@ export function PuzzleScreen() {
         'Initial puzzle scramble failed.',
         scrambleError instanceof Error ? scrambleError.message : scrambleError,
       );
-      setScrambled(true);
+      setScrambled(false);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
 
   const finishSwapAnimation = useCallback(async () => {
     snapToBoard(gameStateRef.current, layout);
-    if (checkSolved()) {
+    if (scrambled && checkSolved()) {
       markSolved();
       try {
         Vibration.vibrate(COMPLETION_HAPTIC_MS);
@@ -229,6 +229,7 @@ export function PuzzleScreen() {
     layout,
     markSolved,
     reducedMotion,
+    scrambled,
     setPhaseSafe,
     snapToBoard,
   ]);

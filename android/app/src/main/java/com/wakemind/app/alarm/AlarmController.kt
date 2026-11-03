@@ -46,7 +46,7 @@ internal object AlarmController {
 
     val finalRepeatDays =
         if (repeatDays != null) {
-          repeatDays.filter { day -> AlarmTime.isValidWeekday(day) }
+          AlarmTime.normalizeRepeatDays(repeatDays)
         } else {
           existing?.repeatDays ?: emptyList()
         }

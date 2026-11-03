@@ -67,7 +67,9 @@ internal class AlarmStore(context: Context) {
   private fun write(alarms: List<StoredAlarm>) {
     val array = JSONArray()
     alarms.forEach { alarm -> array.put(alarm.toJson()) }
-    val json = JSONObject().put("version", STORE_VERSION).put("alarms", array)
+    val json = JSONObject()
+    json.put("version", STORE_VERSION)
+    json.put("alarms", array)
     val directory = file.parentFile ?: throw IOException("Alarm store directory is missing.")
     val temporary = File(directory, "$FILE_NAME.tmp")
     temporary.writeText(json.toString())

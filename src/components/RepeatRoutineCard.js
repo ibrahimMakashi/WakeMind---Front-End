@@ -88,12 +88,6 @@ export function RepeatRoutineCard({
           );
         })}
       </View>
-
-      <Text style={[typography.caption, styles.note, {color: colors.textSoft}]}>
-        {normalized.length === 0
-          ? 'Rings once. Select weekdays to repeat every week automatically.'
-          : 'Repeats weekly. Must solve vision puzzle each time to dismiss.'}
-      </Text>
     </SurfaceCard>
   );
 }
@@ -142,10 +136,5 @@ const styles = StyleSheet.create({
   },
   dotInactive: {
     backgroundColor: 'transparent',
-  },
-  note: {
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: spacing.sm,
   },
 });

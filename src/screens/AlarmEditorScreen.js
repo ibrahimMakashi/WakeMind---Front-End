@@ -227,7 +227,10 @@ function AlarmEditorForm({alarm}) {
         }),
       );
       if (Platform.OS === 'android') {
-        ToastAndroid.show(buildAlarmSaveToast(saved), ToastAndroid.LONG);
+        ToastAndroid.show(
+          buildAlarmSaveToast(saved, {isEditing: editing}),
+          ToastAndroid.LONG,
+        );
       }
       try {
         await reload();
@@ -339,7 +342,7 @@ function AlarmEditorForm({alarm}) {
             disabled={busy}
             icon="cellphone-basic"
             onSwitchChange={setVibrate}
-            subtitle="Use vibration when the alarm rings"
+            subtitle="Strong pulse pattern"
             switchValue={vibrate}
             title="Haptic Vibration"
           />
@@ -347,9 +350,9 @@ function AlarmEditorForm({alarm}) {
           <SettingsRow
             badge="STRICT"
             icon="clock-outline"
-            subtitle="Snooze is not available in this release"
+            subtitle="1 Snooze max (5 minutes penalty)"
             title="Discipline Snooze"
-            trailing="Not available"
+            trailing="5 min"
           />
         </SurfaceCard>
 

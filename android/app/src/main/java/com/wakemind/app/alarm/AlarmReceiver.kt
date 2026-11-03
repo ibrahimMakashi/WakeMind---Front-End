@@ -13,15 +13,27 @@ class AlarmReceiver : BroadcastReceiver() {
       Log.e(ALARM_LOG_TAG, "Alarm fired without an id.")
       return
     }
-    try {
-      val store = AlarmStore(context)
-      val alarm = store.get(alarmId)
-      if (alarm == null) {
-        Log.e(ALARM_LOG_TAG, "Alarm $alarmId fired but it is not in local storage.")
-        return
-      }
+    handleAlarmFired(context, alarmId)
+  }
 
-      if (alarm.repeatDays.isNotEmpty()) {
+  internal fun handleAlarmFired(context: Context, alarmId: String) {
+    val store = AlarmStore(context)
+    val alarm =
+        try {
+          store.get(alarmId)
+        } catch (error: Exception) {
+          Log.e(ALARM_LOG_TAG, "Failed to load alarm $alarmId from store.", error)
+          null
+        }
+
+    if (alarm == null) {
+      Log.e(ALARM_LOG_TAG, "Alarm $alarmId fired but it is not in local storage.")
+      return
+    }
+
+    // 1. Recurrence and firing state maintenance (with isolated error handling)
+    if (alarm.repeatDays.isNotEmpty()) {
+      try {
         val nextTrigger =
             AlarmTime.nextWeeklyTriggerMillis(
                 alarm.hour,
@@ -32,16 +44,38 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         val recurringAlarm = alarm.copy(enabled = true, triggerAtMillis = nextTrigger)
         store.upsert(recurringAlarm)
-        AlarmScheduler.schedule(context, recurringAlarm)
-      } else {
+
+        try {
+          AlarmScheduler.schedule(context, recurringAlarm)
+        } catch (scheduleError: Exception) {
+          Log.e(
+              ALARM_LOG_TAG,
+              "Failed to schedule next weekly recurrence for alarm $alarmId.",
+              scheduleError,
+          )
+        }
+      } catch (recurrenceError: Exception) {
+        Log.e(
+            ALARM_LOG_TAG,
+            "Failed to calculate next trigger or update store for recurring alarm $alarmId.",
+            recurrenceError,
+        )
+      }
+    } else {
+      try {
         store.markFired(alarmId)
         AlarmScheduler.cancel(context, alarmId)
+      } catch (stateError: Exception) {
+        Log.e(ALARM_LOG_TAG, "Failed to update fired state for one-time alarm $alarmId.", stateError)
       }
+    }
 
+    // 2. ALWAYS attempt to start the current alarm ringing, independent of recurrence scheduling
+    try {
       AlarmRingtoneService.start(context, alarm)
-      Log.i(ALARM_LOG_TAG, "Alarm $alarmId fired.")
-    } catch (error: Exception) {
-      Log.e(ALARM_LOG_TAG, "Failed to start alarm $alarmId", error)
+      Log.i(ALARM_LOG_TAG, "Alarm $alarmId started ringing.")
+    } catch (ringError: Exception) {
+      Log.e(ALARM_LOG_TAG, "Failed to start ringtone service for alarm $alarmId.", ringError)
     }
   }
 }

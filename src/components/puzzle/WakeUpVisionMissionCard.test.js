@@ -54,7 +54,7 @@ describe('WakeUpVisionMissionCard', () => {
     expect(root.findByProps({children: 'Wake-Up Vision Mission'})).toBeDefined();
     expect(root.findByProps({children: 'LOCK ACTIVE'})).toBeDefined();
     expect(root.findByProps({children: 'Mount Fuji'})).toBeDefined();
-    expect(root.findByProps({children: '9 Tiles (Normal)'})).toBeDefined();
+    expect(root.findByProps({children: '9 Tiles (Standard)'})).toBeDefined();
     expect(root.findByProps({children: '3 × 3'})).toBeDefined();
     expect(root.findByProps({children: '4 × 4'})).toBeDefined();
     expect(root.findByProps({children: '5 × 5'})).toBeDefined();

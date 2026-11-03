@@ -17,7 +17,7 @@ const DIFFICULTY_CONFIG = [
     grid: '3 × 3',
     label: 'NORMAL',
     tiles: 9,
-    summary: '9 Tiles (Normal)',
+    summary: '9 Tiles (Standard)',
   },
   {
     id: 'medium',
@@ -82,7 +82,7 @@ export function WakeUpVisionMissionCard({
               styles.iconTile,
               {backgroundColor: colors.surfaceDeep, borderRadius: radius.icon},
             ]}>
-            <AppIcon color={colors.accent} name="view-grid-outline" size={20} />
+            <AppIcon color={colors.accent} name="hexagon-slice-6" size={20} />
           </View>
           <View style={styles.headerTitles}>
             <View style={styles.titleWithBadge}>

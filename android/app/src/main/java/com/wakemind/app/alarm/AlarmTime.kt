@@ -7,9 +7,28 @@ internal object AlarmTime {
   const val TEST_OFFSET_SECONDS = 60
   const val RINGING_SAFETY_MINUTES = 15
 
-  val VALID_WEEKDAYS = setOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+  val ORDERED_WEEKDAYS = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+  val VALID_WEEKDAYS = ORDERED_WEEKDAYS.toSet()
 
-  fun isValidWeekday(day: String): Boolean = day.trim().lowercase() in VALID_WEEKDAYS
+  fun isValidWeekday(day: String?): Boolean =
+      day != null && day.trim().lowercase() in VALID_WEEKDAYS
+
+  fun normalizeRepeatDays(rawDays: Collection<String>?): List<String> {
+    if (rawDays.isNullOrEmpty()) {
+      return emptyList()
+    }
+    val seen = mutableSetOf<String>()
+    for (day in rawDays) {
+      val normalized = day.trim().lowercase()
+      if (normalized !in VALID_WEEKDAYS) {
+        throw IllegalArgumentException(
+            "Invalid weekday: '$day'. Valid weekdays are mon, tue, wed, thu, fri, sat, sun.",
+        )
+      }
+      seen.add(normalized)
+    }
+    return ORDERED_WEEKDAYS.filter { it in seen }
+  }
 
   fun weekdayToCalendarDay(day: String): Int {
     return when (day.trim().lowercase()) {
@@ -20,7 +39,7 @@ internal object AlarmTime {
       "thu" -> Calendar.THURSDAY
       "fri" -> Calendar.FRIDAY
       "sat" -> Calendar.SATURDAY
-      else -> throw IllegalArgumentException("Invalid weekday: $day")
+      else -> throw IllegalArgumentException("Invalid weekday: '$day'")
     }
   }
 
@@ -53,13 +72,11 @@ internal object AlarmTime {
   ): Long {
     require(hour in 0..23) { "Hour must be between 0 and 23." }
     require(minute in 0..59) { "Minute must be between 0 and 59." }
-    val targetDays =
-        selectedDays
-            .mapNotNull { day -> if (isValidWeekday(day)) weekdayToCalendarDay(day) else null }
-            .toSet()
-    require(targetDays.isNotEmpty()) {
+    val normalized = normalizeRepeatDays(selectedDays)
+    require(normalized.isNotEmpty()) {
       "At least one valid weekday must be selected for weekly alarms."
     }
+    val targetDays = normalized.map { weekdayToCalendarDay(it) }.toSet()
 
     for (offset in 0..7) {
       val calendar = Calendar.getInstance(timeZone)

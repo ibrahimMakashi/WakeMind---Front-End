@@ -2,15 +2,16 @@ import {formatListTimeParts} from './time';
 
 /**
  * Formats duration milliseconds into a readable phrase like "8 hours 25 minutes" or "1 day 2 hours".
+ * Uses Math.ceil() for minute precision.
  * @param {number} millis
  * @returns {string}
  */
 export function formatRemainingDuration(millis) {
-  if (millis <= 0) {
+  if (typeof millis !== 'number' || isNaN(millis) || millis <= 0) {
     return 'less than 1 minute';
   }
 
-  const totalMinutes = Math.max(1, Math.round(millis / 60000));
+  const totalMinutes = Math.max(1, Math.ceil(millis / 60000));
   const days = Math.floor(totalMinutes / (24 * 60));
   const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
   const minutes = totalMinutes % 60;
@@ -31,19 +32,53 @@ export function formatRemainingDuration(millis) {
 
 /**
  * Builds the text for the toast shown after saving an alarm.
- * Example: "Alarm set for 6:30 AM · Rings in 8 hours 25 minutes"
+ * Distinguishes "Alarm set for..." from "Alarm updated for...".
+ * If triggerAtMillis is missing, invalid, or in the past, displays a generic confirmation.
+ *
  * @param {object} savedAlarm
- * @param {number} [nowMillis=Date.now()]
+ * @param {object|boolean|number} [options={}]
  * @returns {string}
  */
-export function buildAlarmSaveToast(savedAlarm, nowMillis = Date.now()) {
+export function buildAlarmSaveToast(savedAlarm, options = {}) {
+  let isEditing = false;
+  let nowMillis = Date.now();
+
+  if (typeof options === 'boolean') {
+    isEditing = options;
+  } else if (typeof options === 'number') {
+    nowMillis = options;
+  } else if (typeof options === 'object' && options !== null) {
+    if (typeof options.isEditing === 'boolean') {
+      isEditing = options.isEditing;
+    }
+    if (typeof options.nowMillis === 'number') {
+      nowMillis = options.nowMillis;
+    }
+  }
+
+  const genericConfirmation = isEditing ? 'Alarm updated.' : 'Alarm saved.';
   if (!savedAlarm) {
-    return 'Alarm saved.';
+    return genericConfirmation;
+  }
+
+  const trigger = savedAlarm.triggerAtMillis;
+  if (
+    typeof trigger !== 'number' ||
+    isNaN(trigger) ||
+    !isFinite(trigger) ||
+    trigger <= nowMillis
+  ) {
+    return genericConfirmation;
+  }
+
+  if (typeof savedAlarm.hour !== 'number' || typeof savedAlarm.minute !== 'number') {
+    return genericConfirmation;
   }
 
   const {timeText, period} = formatListTimeParts(savedAlarm.hour, savedAlarm.minute);
-  const remaining = (savedAlarm.triggerAtMillis || nowMillis) - nowMillis;
+  const remaining = trigger - nowMillis;
   const durationText = formatRemainingDuration(remaining);
+  const prefix = isEditing ? 'Alarm updated for' : 'Alarm set for';
 
-  return `Alarm set for ${timeText} ${period} · Rings in ${durationText}`;
+  return `${prefix} ${timeText} ${period} · Rings in ${durationText}`;
 }

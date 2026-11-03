@@ -92,8 +92,9 @@ describe('PuzzleProgressBar', () => {
         : String(node.props.children),
     );
 
-    expect(textStrings).toContain('0 / 9 tiles placed');
+    expect(textStrings).toContain('Preparing puzzle...');
     expect(textStrings).toContain('0%');
+    expect(textStrings).not.toContain('100%');
 
     act(() => {
       renderer.unmount();

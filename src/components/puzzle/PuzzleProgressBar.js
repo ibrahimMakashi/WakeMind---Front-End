@@ -8,14 +8,14 @@ export function PuzzleProgressBar({board, ready = true, style}) {
 
   const total = board?.tiles?.length || 0;
   const correct = useMemo(() => {
-    if (!board?.tiles || !Array.isArray(board.tiles)) {
+    if (!ready || !board?.tiles || !Array.isArray(board.tiles)) {
       return 0;
     }
     return board.tiles.filter(t => t.position === t.origin).length;
-  }, [board?.tiles]);
+  }, [board?.tiles, ready]);
 
   const fraction = ready && total > 0 ? correct / total : 0;
-  const percentage = Math.round(fraction * 100);
+  const percentage = ready && total > 0 ? Math.round(fraction * 100) : 0;
 
   const animValue = useRef(new Animated.Value(ready ? fraction : 0)).current;
 
@@ -49,7 +49,7 @@ export function PuzzleProgressBar({board, ready = true, style}) {
         </Text>
         <View style={styles.statsRow}>
           <Text style={[typography.caption, styles.countText, {color: colors.textSoft}]}>
-            {ready ? correct : 0} / {total} tiles placed
+            {ready ? `${correct} / ${total} tiles placed` : 'Preparing puzzle...'}
           </Text>
           <Text style={[typography.caption, styles.percentText, {color: colors.accent}]}>
             {percentage}%
