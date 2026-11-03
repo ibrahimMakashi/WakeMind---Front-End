@@ -17,6 +17,7 @@ internal object AlarmController {
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
       difficulty: String? = null,
+      repeatDays: List<String>? = null,
   ): StoredAlarm {
     val store = AlarmStore(context)
     val existing = if (id.isNullOrBlank()) null else store.get(id)
@@ -42,6 +43,30 @@ internal object AlarmController {
         } else {
           existing?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
         }
+
+    val finalRepeatDays =
+        if (repeatDays != null) {
+          repeatDays.filter { day -> AlarmTime.isValidWeekday(day) }
+        } else {
+          existing?.repeatDays ?: emptyList()
+        }
+    val repeatType =
+        if (finalRepeatDays.isNotEmpty()) AlarmDefaults.REPEAT_WEEKLY
+        else AlarmDefaults.REPEAT_ONCE
+
+    val nextTrigger =
+        if (finalRepeatDays.isNotEmpty()) {
+          AlarmTime.nextWeeklyTriggerMillis(
+              hour,
+              minute,
+              finalRepeatDays,
+              now,
+              TimeZone.getDefault(),
+          )
+        } else {
+          AlarmTime.nextClockTriggerMillis(hour, minute, now, TimeZone.getDefault())
+        }
+
     val alarm =
         StoredAlarm(
             id = existing?.id ?: UUID.randomUUID().toString(),
@@ -50,14 +75,14 @@ internal object AlarmController {
             enabled = enabled,
             vibrate = vibrate,
             label = cleanLabel(label, AlarmDefaults.DEFAULT_LABEL),
-            repeat = AlarmDefaults.REPEAT_ONCE,
+            repeat = repeatType,
             difficulty = finalDifficulty,
             sound = AlarmDefaults.SOUND_SYSTEM_ALARM,
-            triggerAtMillis =
-                AlarmTime.nextClockTriggerMillis(hour, minute, now, TimeZone.getDefault()),
+            triggerAtMillis = nextTrigger,
             createdAtMillis = existing?.createdAtMillis ?: now,
             puzzleImageId = finalImageId,
             puzzleImageType = finalImageType,
+            repeatDays = finalRepeatDays,
         )
     store.upsert(alarm)
     try {
@@ -74,7 +99,8 @@ internal object AlarmController {
   }
 
   fun scheduleTestAlarm(context: Context, offsetSeconds: Int): StoredAlarm {
-    if (offsetSeconds !in AlarmDefaults.MIN_TEST_OFFSET_SECONDS..AlarmDefaults.MAX_TEST_OFFSET_SECONDS) {
+    if (offsetSeconds !in
+        AlarmDefaults.MIN_TEST_OFFSET_SECONDS..AlarmDefaults.MAX_TEST_OFFSET_SECONDS) {
       throw IllegalArgumentException(
           "Test alarm offset must be between ${AlarmDefaults.MIN_TEST_OFFSET_SECONDS} and ${AlarmDefaults.MAX_TEST_OFFSET_SECONDS} seconds.",
       )
@@ -97,6 +123,7 @@ internal object AlarmController {
             createdAtMillis = now,
             puzzleImageId = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
             puzzleImageType = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE,
+            repeatDays = emptyList(),
         )
     val store = AlarmStore(context)
     store.upsert(alarm)
@@ -114,15 +141,26 @@ internal object AlarmController {
     val existing = store.get(id) ?: throw IllegalArgumentException("Alarm not found.")
     val updated =
         if (enabled) {
+          val nextTrigger =
+              if (existing.repeatDays.isNotEmpty()) {
+                AlarmTime.nextWeeklyTriggerMillis(
+                    existing.hour,
+                    existing.minute,
+                    existing.repeatDays,
+                    System.currentTimeMillis(),
+                    TimeZone.getDefault(),
+                )
+              } else {
+                AlarmTime.nextClockTriggerMillis(
+                    existing.hour,
+                    existing.minute,
+                    System.currentTimeMillis(),
+                    TimeZone.getDefault(),
+                )
+              }
           existing.copy(
               enabled = true,
-              triggerAtMillis =
-                  AlarmTime.nextClockTriggerMillis(
-                      existing.hour,
-                      existing.minute,
-                      System.currentTimeMillis(),
-                      TimeZone.getDefault(),
-                  ),
+              triggerAtMillis = nextTrigger,
           )
         } else {
           existing.copy(enabled = false)

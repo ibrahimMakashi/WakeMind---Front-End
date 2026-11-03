@@ -1,5 +1,6 @@
 package com.wakemind.app.alarm
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class StoredAlarm(
@@ -16,8 +17,12 @@ internal data class StoredAlarm(
     val createdAtMillis: Long,
     val puzzleImageId: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
     val puzzleImageType: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE,
+    val repeatDays: List<String> = emptyList(),
 ) {
   fun toJson(): JSONObject {
+    val daysArray = JSONArray()
+    repeatDays.forEach { day -> daysArray.put(day) }
+
     return JSONObject()
         .put("id", id)
         .put("hour", hour)
@@ -32,6 +37,7 @@ internal data class StoredAlarm(
         .put("createdAtMillis", createdAtMillis)
         .put("puzzleImageId", puzzleImageId)
         .put("puzzleImageType", puzzleImageType)
+        .put("repeatDays", daysArray)
   }
 
   companion object {
@@ -39,7 +45,20 @@ internal data class StoredAlarm(
       val rawImageId = json.optString("puzzleImageId", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID)
       val rawImageType = json.optString("puzzleImageType", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE)
       val rawDifficulty = json.optString("difficulty", AlarmDefaults.DIFFICULTY_EASY)
-      val finalDifficulty = if (rawDifficulty in setOf("easy", "medium", "hard")) rawDifficulty else AlarmDefaults.DIFFICULTY_EASY
+      val finalDifficulty =
+          if (rawDifficulty in setOf("easy", "medium", "hard")) rawDifficulty
+          else AlarmDefaults.DIFFICULTY_EASY
+
+      val rawDays = json.optJSONArray("repeatDays")
+      val repeatDaysList = mutableListOf<String>()
+      if (rawDays != null) {
+        for (i in 0 until rawDays.length()) {
+          val day = rawDays.optString(i)
+          if (!day.isNullOrBlank()) {
+            repeatDaysList.add(day.trim().lowercase())
+          }
+        }
+      }
 
       return StoredAlarm(
           id = requiredString(json, "id"),
@@ -53,8 +72,12 @@ internal data class StoredAlarm(
           sound = requiredString(json, "sound"),
           triggerAtMillis = requiredLong(json, "triggerAtMillis"),
           createdAtMillis = requiredLong(json, "createdAtMillis"),
-          puzzleImageId = if (rawImageId.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID else rawImageId,
-          puzzleImageType = if (rawImageType.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE else rawImageType,
+          puzzleImageId =
+              if (rawImageId.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID else rawImageId,
+          puzzleImageType =
+              if (rawImageType.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
+              else rawImageType,
+          repeatDays = repeatDaysList,
       )
     }
 

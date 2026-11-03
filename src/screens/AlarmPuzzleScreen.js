@@ -12,6 +12,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AppIcon} from '../components/AppIcon';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
+import {PuzzleProgressBar} from '../components/puzzle/PuzzleProgressBar';
 import {spacing} from '../constants/theme';
 import {usePuzzleGame} from '../hooks/usePuzzleGame';
 import {usePuzzleGestures} from '../hooks/usePuzzleGestures';
@@ -20,7 +21,7 @@ import {DEFAULT_PUZZLE_IMAGE_ID, findImageById, resolveImageSource} from '../puz
 import {getCustomImageById} from '../puzzle/imageStorage';
 import {cellOrigin, createLayout} from '../puzzle/layout';
 import {COMPLETION_GLOW_MS, COMPLETION_HAPTIC_MS, TILE_GAP_PX} from '../puzzle/motionConfig';
-import {dismissAlarmAfterPuzzle, stopRinging} from '../services/alarmService';
+import {dismissAlarmAfterPuzzle} from '../services/alarmService';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
 import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
@@ -149,6 +150,7 @@ export function AlarmPuzzleScreen({
   const [draggingId, setDraggingId] = useState(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [scrambled, setScrambled] = useState(false);
   const dismissingRef = useRef(false);
 
   const completionGlow = useRef(new Animated.Value(0)).current;
@@ -174,6 +176,7 @@ export function AlarmPuzzleScreen({
       const next = applyShuffle(random);
       await animateShuffle(previous, next, targetLayout);
       snapToBoard(next, targetLayout, {force: true});
+      setScrambled(true);
       setPhaseSafe('idle');
     },
     [animateShuffle, applyShuffle, gameStateRef, layout, setPhaseSafe, snapToBoard],
@@ -196,6 +199,7 @@ export function AlarmPuzzleScreen({
     mountedScrambleRef.current = true;
     runScramble(Math.random).catch(scrambleError => {
       console.warn('Alarm puzzle scramble failed', scrambleError);
+      setScrambled(true);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
@@ -205,47 +209,53 @@ export function AlarmPuzzleScreen({
       return;
     }
     dismissingRef.current = true;
-    markSolved();
-    setIsDismissed(true);
 
     try {
-      Vibration.vibrate(COMPLETION_HAPTIC_MS);
-    } catch {
-      // Ignore vibration error
-    }
-
-    AccessibilityInfo.announceForAccessibility('Alarm puzzle solved. Vision unlocked.');
-
-    const glowMs = motionDuration(reducedMotion, COMPLETION_GLOW_MS);
-    Animated.parallel([
-      Animated.timing(completionGlow, {
-        toValue: 1,
-        duration: glowMs,
-        useNativeDriver: true,
-      }),
-      Animated.spring(unlockBannerScale, {
-        toValue: 1,
-        speed: 18,
-        bounciness: reducedMotion ? 0 : 6,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    try {
+      let dismissed = false;
       if (alarmId) {
-        await dismissAlarmAfterPuzzle(alarmId);
+        dismissed = await dismissAlarmAfterPuzzle(alarmId);
       } else {
-        await stopRinging();
+        dismissed = true;
       }
-    } catch (dismissError) {
-      console.warn('Alarm puzzle dismissal failed, calling fallback stopRinging', dismissError);
+
+      if (!dismissed) {
+        console.warn(`Alarm puzzle dismissal was rejected by native engine for alarmId=${alarmId}`);
+        dismissingRef.current = false;
+        setPhaseSafe('idle');
+        return;
+      }
+
+      markSolved();
+      setIsDismissed(true);
+
       try {
-        await stopRinging();
-      } catch (fallbackError) {
-        console.error('stopRinging fallback failed', fallbackError);
+        Vibration.vibrate(COMPLETION_HAPTIC_MS);
+      } catch {
+        // Ignore vibration error
       }
+
+      AccessibilityInfo.announceForAccessibility('Alarm puzzle solved. Vision unlocked.');
+
+      const glowMs = motionDuration(reducedMotion, COMPLETION_GLOW_MS);
+      Animated.parallel([
+        Animated.timing(completionGlow, {
+          toValue: 1,
+          duration: glowMs,
+          useNativeDriver: true,
+        }),
+        Animated.spring(unlockBannerScale, {
+          toValue: 1,
+          speed: 18,
+          bounciness: reducedMotion ? 0 : 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } catch (dismissError) {
+      console.warn('Alarm puzzle dismissal failed', dismissError);
+      dismissingRef.current = false;
+      setPhaseSafe('idle');
     }
-  }, [alarmId, completionGlow, markSolved, reducedMotion, unlockBannerScale]);
+  }, [alarmId, completionGlow, markSolved, reducedMotion, setPhaseSafe, unlockBannerScale]);
 
   const finishSwapAnimation = useCallback(async () => {
     snapToBoard(gameStateRef.current, layout);
@@ -504,6 +514,13 @@ export function AlarmPuzzleScreen({
         </View>
       </View>
 
+      {/* Live Puzzle Progress Bar */}
+      <PuzzleProgressBar
+        board={board}
+        ready={scrambled}
+        style={styles.progressBar}
+      />
+
       {/* Main Puzzle Board Area */}
       <View style={styles.boardWrap}>
         <PuzzleBoard
@@ -614,6 +631,10 @@ const styles = StyleSheet.create({
   hudDivider: {
     height: 24,
     width: StyleSheet.hairlineWidth,
+  },
+  progressBar: {
+    maxWidth: 380,
+    paddingHorizontal: spacing.xs,
   },
   boardWrap: {
     alignItems: 'center',

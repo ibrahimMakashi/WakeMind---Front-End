@@ -79,6 +79,45 @@ class AlarmTimeTest {
     )
   }
 
+  @Test
+  fun schedulesWeeklyLaterTodayIfSelected() {
+    val now = utc(2026, 10, 8, 8, 0) // Thursday
+    val trigger = AlarmTime.nextWeeklyTriggerMillis(9, 30, listOf("thu"), now, timeZone)
+    assertEquals(utc(2026, 10, 8, 9, 30), trigger)
+  }
+
+  @Test
+  fun rollsWeeklySameDayPastTimeToNextWeek() {
+    val now = utc(2026, 10, 8, 10, 0) // Thursday
+    val trigger = AlarmTime.nextWeeklyTriggerMillis(9, 30, listOf("thu"), now, timeZone)
+    assertEquals(utc(2026, 10, 15, 9, 30), trigger)
+  }
+
+  @Test
+  fun schedulesWeeklyEarliestUpcomingDay() {
+    val now = utc(2026, 10, 8, 10, 0) // Thursday
+    val trigger = AlarmTime.nextWeeklyTriggerMillis(7, 0, listOf("fri", "mon"), now, timeZone)
+    assertEquals(utc(2026, 10, 9, 7, 0), trigger) // Friday
+  }
+
+  @Test
+  fun rollsWeeklyOverWeekendToNextWeek() {
+    val now = utc(2026, 10, 8, 10, 0) // Thursday
+    val trigger = AlarmTime.nextWeeklyTriggerMillis(7, 0, listOf("mon", "wed"), now, timeZone)
+    assertEquals(utc(2026, 10, 12, 7, 0), trigger) // Monday
+  }
+
+  @Test
+  fun rejectsEmptyOrInvalidWeeklyDays() {
+    val now = utc(2026, 10, 8, 10, 0)
+    assertThrows(IllegalArgumentException::class.java) {
+      AlarmTime.nextWeeklyTriggerMillis(7, 0, emptyList(), now, timeZone)
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      AlarmTime.nextWeeklyTriggerMillis(7, 0, listOf("invalid"), now, timeZone)
+    }
+  }
+
   private fun utc(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long {
     val calendar = java.util.Calendar.getInstance(timeZone)
     calendar.set(java.util.Calendar.YEAR, year)

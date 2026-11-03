@@ -1,6 +1,7 @@
 import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
 import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
+import {formatRepeatBadge} from '../utils/repeatDays';
 import {formatListTimeParts} from '../utils/time';
 import {StatusBadge} from './StatusBadge';
 import {SurfaceCard} from './SurfaceCard';
@@ -11,6 +12,7 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
   const enabled = alarm.enabled;
   const timeColor = enabled ? colors.text : colors.textSoft;
   const periodColor = enabled ? colors.accent : colors.textSoft;
+  const repeatText = formatRepeatBadge(alarm.repeatDays);
 
   function openEditor() {
     if (toggling) {
@@ -59,6 +61,11 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
         </Text>
         <View collapsable={false} style={styles.metaRow}>
           <StatusBadge
+            icon="repeat"
+            label={repeatText}
+            muted={!enabled}
+          />
+          <StatusBadge
             icon={alarm.vibrate !== false ? 'vibrate' : 'volume-off'}
             label={alarm.vibrate !== false ? 'Vibration' : 'Silent'}
             muted={!enabled}
@@ -100,7 +107,8 @@ const styles = StyleSheet.create({
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
 });

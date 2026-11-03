@@ -21,6 +21,7 @@ import {ImageGalleryModal} from '../components/puzzle/ImageGalleryModal';
 import {PuzzleBoard} from '../components/puzzle/PuzzleBoard';
 import {PuzzleCompletion} from '../components/puzzle/PuzzleCompletion';
 import {PuzzleHud} from '../components/puzzle/PuzzleHud';
+import {PuzzleProgressBar} from '../components/puzzle/PuzzleProgressBar';
 import {spacing} from '../constants/theme';
 import {usePuzzleGame} from '../hooks/usePuzzleGame';
 import {usePuzzleGestures} from '../hooks/usePuzzleGestures';
@@ -119,6 +120,7 @@ export function PuzzleScreen() {
   const [pendingCropImage, setPendingCropImage] = useState(null);
   const [cropProcessing, setCropProcessing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [scrambled, setScrambled] = useState(false);
 
   const completionGlow = useRef(new Animated.Value(0)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -158,6 +160,7 @@ export function PuzzleScreen() {
       const next = applyShuffle(random);
       await animateShuffle(previous, next, targetLayout);
       snapToBoard(next, targetLayout, {force: true});
+      setScrambled(true);
       setPhaseSafe('idle');
     },
     [animateShuffle, applyShuffle, gameStateRef, layout, setPhaseSafe, snapToBoard],
@@ -183,6 +186,7 @@ export function PuzzleScreen() {
         'Initial puzzle scramble failed.',
         scrambleError instanceof Error ? scrambleError.message : scrambleError,
       );
+      setScrambled(true);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
@@ -403,6 +407,7 @@ export function PuzzleScreen() {
     setElapsedSeconds(0);
     completionGlow.setValue(0);
     checkScale.setValue(0);
+    setScrambled(false);
     runScramble(Math.random);
   }, [canInteract, checkScale, completionGlow, runScramble]);
 
@@ -420,6 +425,7 @@ export function PuzzleScreen() {
       prevLayoutRef.current = {boardPx: nextLayout.boardPx, size: nextLayout.size};
       ensureMap(newBoard);
       snapToBoard(newBoard, nextLayout, {force: true});
+      setScrambled(true);
       setPhaseSafe('idle');
     },
     [
@@ -445,6 +451,7 @@ export function PuzzleScreen() {
     const next = unlockAfterComplete(Math.random);
     await animateShuffle(previous, next, layout);
     snapToBoard(next, layout);
+    setScrambled(true);
     setPhaseSafe('idle');
   }, [
     animateShuffle,
@@ -635,6 +642,13 @@ export function PuzzleScreen() {
           onShuffle={handleShuffle}
         />
 
+        {/* Live Puzzle Progress Bar */}
+        <PuzzleProgressBar
+          board={board}
+          ready={scrambled}
+          style={styles.progressBar}
+        />
+
         {/* Puzzle Board Container */}
         <PuzzleBoard
           ref={boardViewRef}
@@ -795,6 +809,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     paddingHorizontal: spacing.md,
+  },
+  progressBar: {
+    maxWidth: 380,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   hintText: {
     letterSpacing: 0.3,

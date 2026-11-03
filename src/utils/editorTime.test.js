@@ -1,6 +1,7 @@
 import {
   applyConfirmedPickerResult,
   buildSavePayload,
+  getNextMinuteSelection,
   initialEditorSelection,
 } from './editorTime';
 import {to24Hour} from './time';
@@ -20,6 +21,22 @@ test('initializes editor draft from stored 24-hour alarm times', () => {
     hour12: 6,
     minute: 30,
     period: 'PM',
+  });
+});
+
+test('rounds forward to the next full minute for new alarms', () => {
+  const t1 = new Date(2026, 10, 8, 8, 30, 15);
+  expect(getNextMinuteSelection(t1)).toEqual({
+    hour12: 8,
+    minute: 31,
+    period: 'AM',
+  });
+
+  const t2 = new Date(2026, 10, 8, 23, 59, 45);
+  expect(getNextMinuteSelection(t2)).toEqual({
+    hour12: 12,
+    minute: 0,
+    period: 'AM',
   });
 });
 
@@ -57,6 +74,7 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     vibrate: true,
     puzzleImageId: 'mount-fuji',
     puzzleImageType: 'bundled',
+    repeatDays: ['mon', 'tue'],
   };
   const draft = initialEditorSelection(6, 30);
   expect(
@@ -79,6 +97,7 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     puzzleImageId: 'mount-fuji',
     puzzleImageType: 'bundled',
     difficulty: 'easy',
+    repeatDays: ['mon', 'tue'],
   });
 });
 
@@ -93,6 +112,7 @@ test('builds a new-alarm payload without an id and enabled by default', () => {
       label: 'Alarm',
       vibrate: true,
       editing: false,
+      repeatDays: ['mon', 'wed', 'fri'],
     }),
   ).toEqual({
     id: undefined,
@@ -104,6 +124,7 @@ test('builds a new-alarm payload without an id and enabled by default', () => {
     puzzleImageId: 'moraine-lake',
     puzzleImageType: 'bundled',
     difficulty: 'easy',
+    repeatDays: ['mon', 'wed', 'fri'],
   });
 });
 
@@ -121,6 +142,7 @@ test('builds save payload with custom puzzle image and specific difficulty', () 
       puzzleImageId: 'custom_12345',
       puzzleImageType: 'custom',
       difficulty: 'hard',
+      repeatDays: [],
     }),
   ).toEqual({
     id: undefined,
@@ -132,6 +154,7 @@ test('builds save payload with custom puzzle image and specific difficulty', () 
     puzzleImageId: 'custom_12345',
     puzzleImageType: 'custom',
     difficulty: 'hard',
+    repeatDays: [],
   });
 });
 
@@ -144,6 +167,7 @@ test('preserves existing difficulty when editing alarm', () => {
     label: 'Focus',
     vibrate: true,
     difficulty: 'medium',
+    repeatDays: ['sat', 'sun'],
   };
   const draft = initialEditorSelection(8, 15);
   expect(
@@ -166,5 +190,6 @@ test('preserves existing difficulty when editing alarm', () => {
     puzzleImageId: 'moraine-lake',
     puzzleImageType: 'bundled',
     difficulty: 'medium',
+    repeatDays: ['sat', 'sun'],
   });
 });

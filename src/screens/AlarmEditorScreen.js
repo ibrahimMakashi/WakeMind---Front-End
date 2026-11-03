@@ -1,5 +1,14 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {Alert, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  ToastAndroid,
+  View,
+} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useAlarms} from '../alarms/AlarmsProvider';
@@ -13,10 +22,6 @@ import {RepeatRoutineCard} from '../components/RepeatRoutineCard';
 import {ScreenContainer} from '../components/ScreenContainer';
 import {SettingsDivider, SettingsRow} from '../components/SettingsRow';
 import {SurfaceCard} from '../components/SurfaceCard';
-import {
-  DEFAULT_HOUR,
-  DEFAULT_MINUTE,
-} from '../constants/alarm';
 import {spacing} from '../constants/theme';
 import {usePuzzleImageLibrary} from '../hooks/usePuzzleImageLibrary';
 import {
@@ -28,9 +33,11 @@ import {cropSquareImage, pickImageFromPhone} from '../puzzle/imageStorage';
 import {deleteAlarm, saveAlarm} from '../services/alarmService';
 import {showRadialTimePicker} from '../services/timePickerService';
 import {useTheme} from '../theme/ThemeProvider';
+import {buildAlarmSaveToast} from '../utils/alarmCountdown';
 import {
   applyConfirmedPickerResult,
   buildSavePayload,
+  getNextMinuteSelection,
   initialEditorSelection,
 } from '../utils/editorTime';
 import {to24Hour} from '../utils/time';
@@ -47,16 +54,19 @@ function AlarmEditorForm({alarm}) {
   const {reload} = useAlarms();
   const {colors, scheme, typography, radius} = useTheme();
   const insets = useSafeAreaInsets();
-  const initial = initialEditorSelection(
-    alarm ? alarm.hour : DEFAULT_HOUR,
-    alarm ? alarm.minute : DEFAULT_MINUTE,
-  );
+  const initial = useMemo(() => {
+    if (alarm) {
+      return initialEditorSelection(alarm.hour, alarm.minute);
+    }
+    return getNextMinuteSelection();
+  }, [alarm]);
   const [hour12, setHour12] = useState(initial.hour12);
   const [minute, setMinute] = useState(initial.minute);
   const [period, setPeriod] = useState(initial.period);
   const [label, setLabel] = useState(alarm ? alarm.label : 'Vision Grind & Mindset');
   const [vibrate, setVibrate] = useState(alarm ? alarm.vibrate !== false : true);
   const [difficulty, setDifficulty] = useState(alarm?.difficulty || 'easy');
+  const [repeatDays, setRepeatDays] = useState(alarm?.repeatDays || []);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pickingTime, setPickingTime] = useState(false);
@@ -201,7 +211,7 @@ function AlarmEditorForm({alarm}) {
     setSaving(true);
     setError('');
     try {
-      await saveAlarm(
+      const saved = await saveAlarm(
         buildSavePayload({
           alarm,
           hour12,
@@ -213,8 +223,12 @@ function AlarmEditorForm({alarm}) {
           puzzleImageId: puzzleImage.id,
           puzzleImageType: puzzleImage.type,
           difficulty,
+          repeatDays,
         }),
       );
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(buildAlarmSaveToast(saved), ToastAndroid.LONG);
+      }
       try {
         await reload();
       } catch (refreshError) {
@@ -296,7 +310,11 @@ function AlarmEditorForm({alarm}) {
         />
 
         {/* 3. Repeat Routine Card */}
-        <RepeatRoutineCard />
+        <RepeatRoutineCard
+          disabled={busy}
+          onChange={setRepeatDays}
+          selectedDays={repeatDays}
+        />
 
         {/* 4. Wake-Up Vision Mission & Difficulty Card */}
         <WakeUpVisionMissionCard

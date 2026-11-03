@@ -48,6 +48,24 @@ class AlarmModule(reactContext: ReactApplicationContext) :
       if (rawDifficulty != null && rawDifficulty !in setOf("easy", "medium", "hard")) {
         throw IllegalArgumentException("Invalid difficulty: $rawDifficulty")
       }
+      val rawRepeatDays =
+          if (payload.hasKey("repeatDays") && !payload.isNull("repeatDays")) {
+            val array = payload.getArray("repeatDays")
+            val list = mutableListOf<String>()
+            if (array != null) {
+              for (i in 0 until array.size()) {
+                val d = array.getString(i)?.trim()?.lowercase()
+                if (!d.isNullOrBlank() && AlarmTime.isValidWeekday(d)) {
+                  if (!list.contains(d)) {
+                    list.add(d)
+                  }
+                }
+              }
+            }
+            list
+          } else {
+            null
+          }
       val saved =
           AlarmController.saveClockAlarm(
               reactApplicationContext,
@@ -60,6 +78,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
               puzzleImageId = rawImageId,
               puzzleImageType = rawImageType,
               difficulty = rawDifficulty,
+              repeatDays = rawRepeatDays,
           )
       promise.resolve(alarmToMap(saved))
     } catch (error: AlarmScheduleException) {
@@ -329,6 +348,9 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     map.putDouble("createdAtMillis", alarm.createdAtMillis.toDouble())
     map.putString("puzzleImageId", alarm.puzzleImageId)
     map.putString("puzzleImageType", alarm.puzzleImageType)
+    val repeatDaysArray = Arguments.createArray()
+    alarm.repeatDays.forEach { day -> repeatDaysArray.pushString(day) }
+    map.putArray("repeatDays", repeatDaysArray)
     return map
   }
 

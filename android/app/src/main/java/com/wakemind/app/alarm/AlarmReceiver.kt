@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import java.util.TimeZone
 
 class AlarmReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -19,8 +20,24 @@ class AlarmReceiver : BroadcastReceiver() {
         Log.e(ALARM_LOG_TAG, "Alarm $alarmId fired but it is not in local storage.")
         return
       }
-      store.markFired(alarmId)
-      AlarmScheduler.cancel(context, alarmId)
+
+      if (alarm.repeatDays.isNotEmpty()) {
+        val nextTrigger =
+            AlarmTime.nextWeeklyTriggerMillis(
+                alarm.hour,
+                alarm.minute,
+                alarm.repeatDays,
+                System.currentTimeMillis(),
+                TimeZone.getDefault(),
+            )
+        val recurringAlarm = alarm.copy(enabled = true, triggerAtMillis = nextTrigger)
+        store.upsert(recurringAlarm)
+        AlarmScheduler.schedule(context, recurringAlarm)
+      } else {
+        store.markFired(alarmId)
+        AlarmScheduler.cancel(context, alarmId)
+      }
+
       AlarmRingtoneService.start(context, alarm)
       Log.i(ALARM_LOG_TAG, "Alarm $alarmId fired.")
     } catch (error: Exception) {

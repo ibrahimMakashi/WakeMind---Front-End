@@ -2,6 +2,7 @@ package com.wakemind.app.alarm
 
 internal object AlarmDefaults {
   const val REPEAT_ONCE = "once"
+  const val REPEAT_WEEKLY = "weekly"
   const val DIFFICULTY_EASY = "easy"
   const val SOUND_SYSTEM_ALARM = "system-alarm"
   const val DEFAULT_LABEL = "Alarm"

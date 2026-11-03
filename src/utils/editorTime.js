@@ -1,4 +1,5 @@
 import {DEFAULT_PUZZLE_IMAGE_ID, DEFAULT_PUZZLE_IMAGE_TYPE} from '../puzzle/imageCatalog';
+import {normalizeRepeatDays} from './repeatDays';
 import {from24Hour, to24Hour} from './time';
 
 export function initialEditorSelection(hour24, minute) {
@@ -8,6 +9,13 @@ export function initialEditorSelection(hour24, minute) {
     minute,
     period: clock.period,
   };
+}
+
+export function getNextMinuteSelection(now = new Date()) {
+  const next = new Date(now.getTime());
+  next.setSeconds(0, 0);
+  next.setMinutes(next.getMinutes() + 1);
+  return initialEditorSelection(next.getHours(), next.getMinutes());
 }
 
 export function applyConfirmedPickerResult(draft, result) {
@@ -33,10 +41,18 @@ export function buildSavePayload({
   puzzleImageId,
   puzzleImageType,
   difficulty,
+  repeatDays,
 }) {
   const rawDifficulty = difficulty || alarm?.difficulty || 'easy';
   const validDifficulty =
     rawDifficulty === 'medium' || rawDifficulty === 'hard' ? rawDifficulty : 'easy';
+
+  const normalizedDays =
+    repeatDays !== undefined
+      ? normalizeRepeatDays(repeatDays)
+      : alarm?.repeatDays
+      ? normalizeRepeatDays(alarm.repeatDays)
+      : [];
 
   return {
     id: editing ? alarm.id : undefined,
@@ -48,5 +64,6 @@ export function buildSavePayload({
     puzzleImageId: puzzleImageId || alarm?.puzzleImageId || DEFAULT_PUZZLE_IMAGE_ID,
     puzzleImageType: puzzleImageType || alarm?.puzzleImageType || DEFAULT_PUZZLE_IMAGE_TYPE,
     difficulty: validDifficulty,
+    repeatDays: normalizedDays,
   };
 }

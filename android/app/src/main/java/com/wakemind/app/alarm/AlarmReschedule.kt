@@ -11,16 +11,25 @@ internal object AlarmReschedule {
     return alarms
         .filter { alarm -> alarm.enabled }
         .map { alarm ->
-          alarm.copy(
-              triggerAtMillis =
-                  AlarmTime.triggerAfterChange(
-                      alarm.hour,
-                      alarm.minute,
-                      alarm.triggerAtMillis,
-                      nowMillis,
-                      timeZone,
-                  ),
-          )
+          val nextTrigger =
+              if (alarm.repeatDays.isNotEmpty()) {
+                AlarmTime.nextWeeklyTriggerMillis(
+                    alarm.hour,
+                    alarm.minute,
+                    alarm.repeatDays,
+                    nowMillis,
+                    timeZone,
+                )
+              } else {
+                AlarmTime.triggerAfterChange(
+                    alarm.hour,
+                    alarm.minute,
+                    alarm.triggerAtMillis,
+                    nowMillis,
+                    timeZone,
+                )
+              }
+          alarm.copy(triggerAtMillis = nextTrigger)
         }
   }
 
