@@ -152,6 +152,7 @@ export function AlarmPuzzleScreen({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isDismissed, setIsDismissed] = useState(false);
   const [scrambled, setScrambled] = useState(false);
+  const [scrambleFailed, setScrambleFailed] = useState(false);
   const dismissingRef = useRef(false);
 
   const completionGlow = useRef(new Animated.Value(0)).current;
@@ -178,6 +179,7 @@ export function AlarmPuzzleScreen({
       await animateShuffle(previous, next, targetLayout);
       snapToBoard(next, targetLayout, {force: true});
       setScrambled(true);
+      setScrambleFailed(false);
       setPhaseSafe('idle');
     },
     [animateShuffle, applyShuffle, gameStateRef, layout, setPhaseSafe, snapToBoard],
@@ -201,15 +203,18 @@ export function AlarmPuzzleScreen({
     runScramble(Math.random).catch(scrambleError => {
       console.warn('Alarm puzzle scramble failed', scrambleError);
       setScrambled(false);
+      setScrambleFailed(true);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
 
   const handleRetryScramble = useCallback(() => {
     setScrambled(false);
+    setScrambleFailed(false);
     runScramble(Math.random).catch(scrambleError => {
       console.warn('Alarm puzzle scramble retry failed', scrambleError);
       setScrambled(false);
+      setScrambleFailed(true);
       setPhaseSafe('idle');
     });
   }, [runScramble, setPhaseSafe]);
@@ -531,7 +536,7 @@ export function AlarmPuzzleScreen({
         style={styles.progressBar}
       />
 
-      {!scrambled && !isDismissed && (
+      {scrambleFailed && !isDismissed && (
         <Pressable
           accessibilityLabel="Retry scrambling puzzle"
           accessibilityRole="button"
