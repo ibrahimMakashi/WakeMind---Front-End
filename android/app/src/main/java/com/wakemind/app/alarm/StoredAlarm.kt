@@ -12,7 +12,7 @@ internal data class StoredAlarm(
     val label: String,
     val repeat: String,
     val difficulty: String,
-    val sound: String,
+    val sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
     val triggerAtMillis: Long,
     val createdAtMillis: Long,
     val puzzleImageId: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
@@ -89,7 +89,9 @@ internal data class StoredAlarm(
           label = requiredString(json, "label"),
           repeat = requiredString(json, "repeat"),
           difficulty = finalDifficulty,
-          sound = requiredString(json, "sound"),
+          sound =
+              json.optString("sound").takeIf { !it.isNullOrBlank() }
+                  ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
           triggerAtMillis = requiredLong(json, "triggerAtMillis"),
           createdAtMillis = requiredLong(json, "createdAtMillis"),
           puzzleImageId =

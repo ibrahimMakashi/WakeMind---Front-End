@@ -17,10 +17,15 @@ import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
 import androidx.fragment.app.FragmentActivity
 
 class AlarmModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
+  private var previewPlayer: MediaPlayer? = null
+
   override fun getName(): String = NAME
 
   @ReactMethod
@@ -64,6 +69,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
           } else {
             null
           }
+      val rawSound = optionalString(payload, "alarmSoundId") ?: optionalString(payload, "sound")
       val saved =
           AlarmController.saveClockAlarm(
               reactApplicationContext,
@@ -77,6 +83,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
               puzzleImageType = rawImageType,
               difficulty = rawDifficulty,
               repeatDays = rawRepeatDays,
+              sound = rawSound,
           )
       promise.resolve(alarmToMap(saved))
     } catch (error: AlarmScheduleException) {
@@ -185,6 +192,98 @@ class AlarmModule(reactContext: ReactApplicationContext) :
       Log.e(ALARM_LOG_TAG, "Could not get active ringing alarm.", error)
       promise.reject("ACTIVE_ALARM_ERROR", error.message, error)
     }
+  }
+
+  @ReactMethod
+  fun playAudioPreview(soundId: String, promise: Promise) {
+    try {
+      stopCurrentPreview()
+      val context = reactApplicationContext
+      val norm = soundId.trim().lowercase()
+      val resId =
+          when (norm) {
+            "gentle_morning" -> com.wakemind.app.R.raw.gentle_morning
+            "classic_alarm" -> com.wakemind.app.R.raw.classic_alarm
+            "deep_wake" -> com.wakemind.app.R.raw.deep_wake
+            "nature_wake" -> com.wakemind.app.R.raw.nature_wake
+            "energetic_wake" -> com.wakemind.app.R.raw.energetic_wake
+            else -> context.resources.getIdentifier(norm, "raw", context.packageName).takeIf { it != 0 }
+          }
+
+      val player: MediaPlayer
+      if (resId != null && resId != 0) {
+        val afd = context.resources.openRawResourceFd(resId)
+        player =
+            MediaPlayer().apply {
+              setAudioAttributes(
+                  AudioAttributes.Builder()
+                      .setUsage(AudioAttributes.USAGE_MEDIA)
+                      .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                      .build(),
+              )
+              setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+              afd.close()
+              isLooping = false
+              setOnCompletionListener { stopCurrentPreview() }
+              prepare()
+              start()
+            }
+      } else {
+        val uri =
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        if (uri == null) {
+          promise.resolve(false)
+          return
+        }
+        player =
+            MediaPlayer().apply {
+              setAudioAttributes(
+                  AudioAttributes.Builder()
+                      .setUsage(AudioAttributes.USAGE_MEDIA)
+                      .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                      .build(),
+              )
+              setDataSource(context, uri)
+              isLooping = false
+              setOnCompletionListener { stopCurrentPreview() }
+              prepare()
+              start()
+            }
+      }
+      previewPlayer = player
+      promise.resolve(true)
+    } catch (e: Exception) {
+      Log.e(ALARM_LOG_TAG, "Failed to play audio preview for $soundId", e)
+      stopCurrentPreview()
+      promise.reject("AUDIO_PREVIEW_ERROR", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun stopAudioPreview(promise: Promise) {
+    try {
+      stopCurrentPreview()
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("AUDIO_PREVIEW_STOP_ERROR", e.message, e)
+    }
+  }
+
+  private fun stopCurrentPreview() {
+    val p = previewPlayer ?: return
+    previewPlayer = null
+    try {
+      if (p.isPlaying) {
+        p.stop()
+      }
+      p.release()
+    } catch (_: Exception) {}
+  }
+
+  override fun invalidate() {
+    stopCurrentPreview()
+    super.invalidate()
   }
 
   @ReactMethod
@@ -342,6 +441,7 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     map.putString("repeat", alarm.repeat)
     map.putString("difficulty", alarm.difficulty)
     map.putString("sound", alarm.sound)
+    map.putString("alarmSoundId", alarm.sound)
     map.putDouble("triggerAtMillis", alarm.triggerAtMillis.toDouble())
     map.putDouble("createdAtMillis", alarm.createdAtMillis.toDouble())
     map.putString("puzzleImageId", alarm.puzzleImageId)

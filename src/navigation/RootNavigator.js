@@ -5,6 +5,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {AppIcon} from '../components/AppIcon';
 import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
+import {ImageEditorScreen} from '../screens/alarm/ImageEditorScreen';
 import {AlarmsScreen} from '../screens/AlarmsScreen';
 import {JournalScreen} from '../screens/JournalScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
@@ -77,6 +78,14 @@ export function RootNavigator() {
         <Stack.Screen
           name="Puzzle"
           component={PuzzleScreen}
+          options={{
+            animation: reducedMotion ? 'none' : 'slide_from_right',
+            animationDuration: motionDuration(reducedMotion, 180),
+          }}
+        />
+        <Stack.Screen
+          name="ImageEditor"
+          component={ImageEditorScreen}
           options={{
             animation: reducedMotion ? 'none' : 'slide_from_right',
             animationDuration: motionDuration(reducedMotion, 180),

@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,13 +16,14 @@ import {useAlarms} from '../alarms/AlarmsProvider';
 import {AppIcon} from '../components/AppIcon';
 import {EditorHeader} from '../components/EditorHeader';
 import {EditorTimeCard} from '../components/EditorTimeCard';
-import {ImageCropEditor} from '../components/puzzle/ImageCropEditor';
 import {ImageGalleryModal} from '../components/puzzle/ImageGalleryModal';
 import {WakeUpVisionMissionCard} from '../components/puzzle/WakeUpVisionMissionCard';
 import {RepeatRoutineCard} from '../components/RepeatRoutineCard';
 import {ScreenContainer} from '../components/ScreenContainer';
 import {SettingsDivider, SettingsRow} from '../components/SettingsRow';
+import {SoundSelectionModal} from '../components/sound/SoundSelectionModal';
 import {SurfaceCard} from '../components/SurfaceCard';
+import {DEFAULT_ALARM_SOUND_ID, findAlarmSound} from '../constants/alarmSounds';
 import {spacing} from '../constants/theme';
 import {usePuzzleImageLibrary} from '../hooks/usePuzzleImageLibrary';
 import {
@@ -29,8 +31,8 @@ import {
   DEFAULT_PUZZLE_IMAGE_TYPE,
   resolveImageSource,
 } from '../puzzle/imageCatalog';
-import {cropSquareImage, pickImageFromPhone} from '../puzzle/imageStorage';
-import {deleteAlarm, saveAlarm} from '../services/alarmService';
+import {pickImageFromPhone} from '../puzzle/imageStorage';
+import {deleteAlarm, saveAlarm, stopAudioPreview} from '../services/alarmService';
 import {showRadialTimePicker} from '../services/timePickerService';
 import {useTheme} from '../theme/ThemeProvider';
 import {buildAlarmSaveToast} from '../utils/alarmCountdown';
@@ -41,6 +43,7 @@ import {
   initialEditorSelection,
 } from '../utils/editorTime';
 import {to24Hour} from '../utils/time';
+import {ImageEditorScreen} from './alarm/ImageEditorScreen';
 
 export function AlarmEditorScreen() {
   const route = useRoute();
@@ -67,6 +70,10 @@ function AlarmEditorForm({alarm}) {
   const [vibrate, setVibrate] = useState(alarm ? alarm.vibrate !== false : true);
   const [difficulty, setDifficulty] = useState(alarm?.difficulty || 'easy');
   const [repeatDays, setRepeatDays] = useState(alarm?.repeatDays || []);
+  const [selectedSoundId, setSelectedSoundId] = useState(
+    alarm?.alarmSoundId || alarm?.sound || DEFAULT_ALARM_SOUND_ID,
+  );
+  const [soundModalVisible, setSoundModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pickingTime, setPickingTime] = useState(false);
@@ -83,7 +90,6 @@ function AlarmEditorForm({alarm}) {
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [cropVisible, setCropVisible] = useState(false);
   const [pendingCropImage, setPendingCropImage] = useState(null);
-  const [cropProcessing, setCropProcessing] = useState(false);
   const [imageActionLoading, setImageActionLoading] = useState(false);
 
   const {
@@ -107,7 +113,14 @@ function AlarmEditorForm({alarm}) {
     };
   }, [alarm?.puzzleImageId, alarm?.puzzleImageType, resolveAlarmImage]);
 
-  const busy = saving || deleting || pickingTime || cropProcessing || imageActionLoading;
+  // Clean up any preview audio when the screen is dismissed or unmounted
+  useEffect(() => {
+    return () => {
+      stopAudioPreview().catch(() => {});
+    };
+  }, []);
+
+  const busy = saving || deleting || pickingTime || imageActionLoading;
   const editing = Boolean(alarm && alarm.id);
 
   const openTimePicker = useCallback(async () => {
@@ -170,39 +183,19 @@ function AlarmEditorForm({alarm}) {
     }
   }, []);
 
-  const handleConfirmCrop = useCallback(
-    async cropParams => {
-      setCropProcessing(true);
-      setError('');
-      try {
-        const cropped = await cropSquareImage({
-          uri: cropParams.uri,
-          cropX: cropParams.cropX,
-          cropY: cropParams.cropY,
-          cropSize: cropParams.cropSize,
-          targetSize: 1024,
-        });
-
-        const customImage = {
-          id: cropped.id,
-          type: 'custom',
-          title: cropParams.title || 'Custom Photo',
-          uri: cropped.uri,
-          source: {uri: cropped.uri},
-        };
-
-        setPuzzleImage(customImage);
-        setCropProcessing(false);
-        setCropVisible(false);
-        setPendingCropImage(null);
-        await recordRecent(customImage);
-      } catch (cropErr) {
-        setCropProcessing(false);
-        setError(cropErr?.message || 'Cropping image failed.');
-      }
-    },
-    [recordRecent],
-  );
+  const handleEditCurrentArtwork = useCallback(() => {
+    if (puzzleImage?.uri || puzzleImage?.source?.uri) {
+      setPendingCropImage({
+        uri: puzzleImage.uri || puzzleImage.source?.uri,
+        title: puzzleImage.title || 'Custom Photo',
+        width: puzzleImage.width,
+        height: puzzleImage.height,
+      });
+      setCropVisible(true);
+    } else {
+      setGalleryVisible(true);
+    }
+  }, [puzzleImage]);
 
   async function onSave() {
     if (busy) {
@@ -210,6 +203,7 @@ function AlarmEditorForm({alarm}) {
     }
     setSaving(true);
     setError('');
+    await stopAudioPreview().catch(() => {});
     try {
       const saved = await saveAlarm(
         buildSavePayload({
@@ -224,6 +218,8 @@ function AlarmEditorForm({alarm}) {
           puzzleImageType: puzzleImage.type,
           difficulty,
           repeatDays,
+          sound: selectedSoundId,
+          alarmSoundId: selectedSoundId,
         }),
       );
       if (Platform.OS === 'android') {
@@ -325,17 +321,20 @@ function AlarmEditorForm({alarm}) {
           difficulty={difficulty}
           disabled={busy}
           onDifficultyChange={setDifficulty}
+          onEditPress={handleEditCurrentArtwork}
           onReplacePress={() => setGalleryVisible(true)}
         />
 
         {/* 5. Alarm Settings Card */}
         <SurfaceCard style={[styles.settings, {borderRadius: radius.lg}]}>
           <SettingsRow
+            disabled={busy}
             icon="bell-outline"
+            onPress={() => setSoundModalVisible(true)}
             showChevron
-            subtitle="Gentle Rise & Conquer (Gradual)"
+            subtitle={findAlarmSound(selectedSoundId).description || 'Alarm ringtone'}
             title="Alarm Sound"
-            trailing="Default"
+            trailing={findAlarmSound(selectedSoundId).name}
           />
           <SettingsDivider />
           <SettingsRow
@@ -405,6 +404,14 @@ function AlarmEditorForm({alarm}) {
         ) : null}
       </ScrollView>
 
+      {/* Sound Selection Modal */}
+      <SoundSelectionModal
+        onClose={() => setSoundModalVisible(false)}
+        onSelectSound={id => setSelectedSoundId(id)}
+        selectedSoundId={selectedSoundId}
+        visible={soundModalVisible}
+      />
+
       {/* Image Gallery Selection Modal */}
       <ImageGalleryModal
         currentImageId={puzzleImage.id}
@@ -417,18 +424,31 @@ function AlarmEditorForm({alarm}) {
         visible={galleryVisible}
       />
 
-      {/* Square Crop Editor Modal */}
-      <ImageCropEditor
-        image={pendingCropImage}
-        onCancel={() => {
+      {/* Dedicated Pinch-to-Zoom Square Image Editor */}
+      <Modal
+        animationType="slide"
+        onRequestClose={() => {
           setCropVisible(false);
           setPendingCropImage(null);
         }}
-        onChangeImage={handleChooseFromPhone}
-        onConfirmCrop={handleConfirmCrop}
-        processing={cropProcessing}
-        visible={cropVisible}
-      />
+        statusBarTranslucent
+        visible={cropVisible && Boolean(pendingCropImage)}>
+        {pendingCropImage ? (
+          <ImageEditorScreen
+            image={pendingCropImage}
+            onApply={async croppedImage => {
+              setPuzzleImage(croppedImage);
+              setCropVisible(false);
+              setPendingCropImage(null);
+              await recordRecent(croppedImage);
+            }}
+            onCancel={() => {
+              setCropVisible(false);
+              setPendingCropImage(null);
+            }}
+          />
+        ) : null}
+      </Modal>
     </ScreenContainer>
   );
 }

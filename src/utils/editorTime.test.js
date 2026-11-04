@@ -98,6 +98,8 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     puzzleImageType: 'bundled',
     difficulty: 'easy',
     repeatDays: ['mon', 'tue'],
+    sound: 'gentle_morning',
+    alarmSoundId: 'gentle_morning',
   });
 });
 
@@ -125,6 +127,8 @@ test('builds a new-alarm payload without an id and enabled by default', () => {
     puzzleImageType: 'bundled',
     difficulty: 'easy',
     repeatDays: ['mon', 'wed', 'fri'],
+    sound: 'gentle_morning',
+    alarmSoundId: 'gentle_morning',
   });
 });
 
@@ -143,6 +147,7 @@ test('builds save payload with custom puzzle image and specific difficulty', () 
       puzzleImageType: 'custom',
       difficulty: 'hard',
       repeatDays: [],
+      sound: 'deep_wake',
     }),
   ).toEqual({
     id: undefined,
@@ -155,10 +160,12 @@ test('builds save payload with custom puzzle image and specific difficulty', () 
     puzzleImageType: 'custom',
     difficulty: 'hard',
     repeatDays: [],
+    sound: 'deep_wake',
+    alarmSoundId: 'deep_wake',
   });
 });
 
-test('preserves existing difficulty when editing alarm', () => {
+test('preserves existing difficulty and sound when editing alarm', () => {
   const alarm = {
     id: 'alarm-2',
     enabled: true,
@@ -167,6 +174,7 @@ test('preserves existing difficulty when editing alarm', () => {
     label: 'Focus',
     vibrate: true,
     difficulty: 'medium',
+    sound: 'classic_alarm',
     repeatDays: ['sat', 'sun'],
   };
   const draft = initialEditorSelection(8, 15);
@@ -190,6 +198,8 @@ test('preserves existing difficulty when editing alarm', () => {
     puzzleImageId: 'moraine-lake',
     puzzleImageType: 'bundled',
     difficulty: 'medium',
+    sound: 'classic_alarm',
+    alarmSoundId: 'classic_alarm',
     repeatDays: ['sat', 'sun'],
   });
 });

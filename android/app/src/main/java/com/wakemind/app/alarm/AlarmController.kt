@@ -18,6 +18,7 @@ internal object AlarmController {
       puzzleImageType: String? = null,
       difficulty: String? = null,
       repeatDays: List<String>? = null,
+      sound: String? = null,
   ): StoredAlarm {
     val store = AlarmStore(context)
     val existing = if (id.isNullOrBlank()) null else store.get(id)
@@ -42,6 +43,13 @@ internal object AlarmController {
           difficulty
         } else {
           existing?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
+        }
+
+    val finalSound =
+        if (!sound.isNullOrBlank()) {
+          sound
+        } else {
+          existing?.sound ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
         }
 
     val finalRepeatDays =
@@ -77,7 +85,7 @@ internal object AlarmController {
             label = cleanLabel(label, AlarmDefaults.DEFAULT_LABEL),
             repeat = repeatType,
             difficulty = finalDifficulty,
-            sound = AlarmDefaults.SOUND_SYSTEM_ALARM,
+            sound = finalSound,
             triggerAtMillis = nextTrigger,
             createdAtMillis = existing?.createdAtMillis ?: now,
             puzzleImageId = finalImageId,

@@ -2,6 +2,8 @@ import {NativeModules, Platform} from 'react-native';
 import {
   dismissAlarmAfterPuzzle,
   getActiveRingingAlarm,
+  playAudioPreview,
+  stopAudioPreview,
   stopRinging,
 } from './alarmService';
 
@@ -22,6 +24,8 @@ describe('alarmService', () => {
       stopRinging: jest.fn().mockResolvedValue(null),
       dismissAlarmAfterPuzzle: jest.fn().mockResolvedValue(true),
       getActiveRingingAlarm: jest.fn().mockResolvedValue({id: 'test-1'}),
+      playAudioPreview: jest.fn().mockResolvedValue(true),
+      stopAudioPreview: jest.fn().mockResolvedValue(true),
     };
   });
 
@@ -44,6 +48,14 @@ describe('alarmService', () => {
     const active = await getActiveRingingAlarm();
     expect(NativeModules.AlarmModule.getActiveRingingAlarm).toHaveBeenCalled();
     expect(active.id).toBe('test-1');
+  });
+
+  test('delegates playAudioPreview and stopAudioPreview to native AlarmModule', async () => {
+    await playAudioPreview('gentle_morning');
+    expect(NativeModules.AlarmModule.playAudioPreview).toHaveBeenCalledWith('gentle_morning');
+
+    await stopAudioPreview();
+    expect(NativeModules.AlarmModule.stopAudioPreview).toHaveBeenCalled();
   });
 
   test('throws on non-Android platform', () => {

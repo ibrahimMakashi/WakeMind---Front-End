@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {
   Image,
   Pressable,
@@ -10,6 +10,7 @@ import {spacing} from '../../constants/theme';
 import {useTheme} from '../../theme/ThemeProvider';
 import {AppIcon} from '../AppIcon';
 import {SurfaceCard} from '../SurfaceCard';
+import {PuzzlePreviewModal} from './PuzzlePreviewModal';
 
 const DIFFICULTY_CONFIG = [
   {
@@ -67,9 +68,11 @@ export function WakeUpVisionMissionCard({
   difficulty = 'easy',
   onDifficultyChange,
   onReplacePress,
+  onEditPress,
   disabled = false,
 }) {
   const {colors, typography, radius} = useTheme();
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const currentDiff = DIFFICULTY_CONFIG.find(d => d.id === difficulty) || DIFFICULTY_CONFIG[0];
 
   return (
@@ -103,14 +106,20 @@ export function WakeUpVisionMissionCard({
       </View>
 
       {/* 7.2 Large Selected-Image Preview with Grid Overlay */}
-      <View
-        style={[
+      <Pressable
+        accessibilityHint="Opens enlarged full-screen grid view"
+        accessibilityLabel={`Puzzle preview ${currentDiff.grid} grid, ${currentDiff.tiles} tiles. Tap to enlarge.`}
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={() => setPreviewModalVisible(true)}
+        style={({pressed}) => [
           styles.previewContainer,
           {
             backgroundColor: colors.surfaceDeep,
             borderColor: colors.border,
             borderRadius: radius.md,
           },
+          pressed && !disabled && styles.pressed,
         ]}>
         {currentImage?.source ? (
           <Image
@@ -137,29 +146,55 @@ export function WakeUpVisionMissionCard({
             </Text>
           </View>
 
-          <Pressable
-            accessibilityHint="Opens artwork gallery to choose or crop a different picture"
-            accessibilityLabel={`Replace current image ${currentImage?.title || ''}`}
-            accessibilityRole="button"
-            disabled={disabled}
-            onPress={onReplacePress}
-            style={({pressed}) => [
-              styles.replaceButton,
-              {
-                backgroundColor: 'rgba(11, 16, 32, 0.75)',
-                borderColor: colors.accent,
-                borderRadius: radius.pill,
-              },
-              pressed && styles.pressed,
-              disabled && styles.disabled,
-            ]}>
-            <AppIcon color={colors.accent} name="camera-outline" size={14} />
-            <Text style={[typography.caption, styles.replaceText, {color: colors.accent}]}>
-              Replace
-            </Text>
-          </Pressable>
+          <View style={styles.actionsRow}>
+            {onEditPress && (
+              <Pressable
+                accessibilityHint="Opens image editor to crop and zoom"
+                accessibilityLabel="Edit current puzzle image"
+                accessibilityRole="button"
+                disabled={disabled}
+                onPress={onEditPress}
+                style={({pressed}) => [
+                  styles.replaceButton,
+                  {
+                    backgroundColor: 'rgba(11, 16, 32, 0.75)',
+                    borderColor: colors.accent,
+                    borderRadius: radius.pill,
+                  },
+                  pressed && styles.pressed,
+                  disabled && styles.disabled,
+                ]}>
+                <AppIcon color={colors.accent} name="crop" size={14} />
+                <Text style={[typography.caption, styles.replaceText, {color: colors.accent}]}>
+                  Edit
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              accessibilityHint="Opens artwork gallery to choose or crop a different picture"
+              accessibilityLabel={`Replace current image ${currentImage?.title || ''}`}
+              accessibilityRole="button"
+              disabled={disabled}
+              onPress={onReplacePress}
+              style={({pressed}) => [
+                styles.replaceButton,
+                {
+                  backgroundColor: 'rgba(11, 16, 32, 0.75)',
+                  borderColor: colors.accent,
+                  borderRadius: radius.pill,
+                },
+                pressed && styles.pressed,
+                disabled && styles.disabled,
+              ]}>
+              <AppIcon color={colors.accent} name="camera-outline" size={14} />
+              <Text style={[typography.caption, styles.replaceText, {color: colors.accent}]}>
+                Replace
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* PART 8: Puzzle Grid Difficulty Selection */}
       <View style={styles.difficultySection}>
@@ -212,6 +247,15 @@ export function WakeUpVisionMissionCard({
           })}
         </View>
       </View>
+
+      {/* Enlarged Modal Preview */}
+      <PuzzlePreviewModal
+        difficulty={difficulty}
+        imageSource={currentImage?.source}
+        onClose={() => setPreviewModalVisible(false)}
+        title="Wake-Up Puzzle Grid"
+        visible={previewModalVisible}
+      />
     </SurfaceCard>
   );
 }
@@ -344,6 +388,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
+  },
+  actionsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   replaceButton: {
     alignItems: 'center',

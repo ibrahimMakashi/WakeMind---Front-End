@@ -1,4 +1,4 @@
-import {StyleSheet, Switch, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
 import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 import {AppIcon} from './AppIcon';
@@ -10,12 +10,14 @@ export function SettingsRow({
   trailing,
   switchValue,
   onSwitchChange,
+  onPress,
   disabled,
   badge,
   showChevron = false,
 }) {
   const {colors, typography, radius} = useTheme();
-  return (
+
+  const content = (
     <View style={styles.row}>
       <View style={[styles.iconTile, {backgroundColor: colors.surfaceDeep, borderRadius: radius.icon}]}>
         <AppIcon name={icon} color={colors.accent} size={20} />
@@ -60,6 +62,22 @@ export function SettingsRow({
       </View>
     </View>
   );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityHint={`Select ${title}`}
+        accessibilityLabel={title}
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={onPress}
+        style={({pressed}) => [pressed && styles.pressed, disabled && styles.disabled]}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
 }
 
 export function SettingsDivider() {
@@ -122,5 +140,11 @@ const styles = StyleSheet.create({
   },
   trailingText: {
     fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.75,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

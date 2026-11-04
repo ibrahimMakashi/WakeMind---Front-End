@@ -4,6 +4,10 @@ import {WakeUpVisionMissionCard} from './WakeUpVisionMissionCard';
 
 jest.mock('@react-native-vector-icons/material-design-icons', () => 'MaterialDesignIcons');
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({top: 0, bottom: 0, left: 0, right: 0}),
+}));
+
 jest.mock('../../theme/ThemeProvider', () => ({
   useTheme: () => ({
     colors: {

@@ -42,6 +42,8 @@ export function buildSavePayload({
   puzzleImageType,
   difficulty,
   repeatDays,
+  sound,
+  alarmSoundId,
 }) {
   const rawDifficulty = difficulty || alarm?.difficulty || 'easy';
   const validDifficulty =
@@ -54,6 +56,9 @@ export function buildSavePayload({
       ? normalizeRepeatDays(alarm.repeatDays)
       : [];
 
+  const finalSound =
+    sound || alarmSoundId || alarm?.sound || alarm?.alarmSoundId || 'gentle_morning';
+
   return {
     id: editing ? alarm.id : undefined,
     hour: to24Hour(hour12, period),
@@ -65,5 +70,7 @@ export function buildSavePayload({
     puzzleImageType: puzzleImageType || alarm?.puzzleImageType || DEFAULT_PUZZLE_IMAGE_TYPE,
     difficulty: validDifficulty,
     repeatDays: normalizedDays,
+    sound: finalSound,
+    alarmSoundId: finalSound,
   };
 }

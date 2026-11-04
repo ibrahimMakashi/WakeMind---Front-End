@@ -51,3 +51,19 @@ export function dismissAlarmAfterPuzzle(alarmId) {
 export function getActiveRingingAlarm() {
   return requireAndroidModule().getActiveRingingAlarm();
 }
+
+export function playAudioPreview(soundId) {
+  const mod = requireAndroidModule();
+  if (typeof mod.playAudioPreview === 'function') {
+    return mod.playAudioPreview(soundId);
+  }
+  return Promise.resolve(true);
+}
+
+export function stopAudioPreview() {
+  const mod = requireAndroidModule();
+  if (typeof mod.stopAudioPreview === 'function') {
+    return mod.stopAudioPreview();
+  }
+  return Promise.resolve(true);
+}

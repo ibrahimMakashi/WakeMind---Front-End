@@ -44,12 +44,13 @@ class AlarmRingtoneService : Service() {
     val puzzleImageId = intent.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID)
     val puzzleImageType = intent.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE)
     val difficulty = intent.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
+    val sound = intent.getStringExtra(AlarmIntents.EXTRA_SOUND) ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
     promoteToForeground(alarmId, label, vibrate, triggerAt, puzzleImageId, puzzleImageType, difficulty)
     if (isRinging && currentAlarmId == alarmId) {
       return START_REDELIVER_INTENT
     }
     try {
-      startAlert(vibrate)
+      startAlert(vibrate, sound)
       currentAlarmId = alarmId
       currentRingingAlarmId = alarmId
       isRinging = true
@@ -96,15 +97,47 @@ class AlarmRingtoneService : Service() {
     acquireWakeLock()
   }
 
-  private fun startAlert(vibrate: Boolean) {
+  private fun startAlert(vibrate: Boolean, sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID) {
     releasePlayer()
-    startAlarmAudio()
+    startAlarmAudio(sound)
     if (vibrate) {
       startVibration()
     }
   }
 
-  private fun startAlarmAudio() {
+  private fun startAlarmAudio(soundId: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID) {
+    try {
+      val resId =
+          when (soundId.trim().lowercase()) {
+            "gentle_morning" -> com.wakemind.app.R.raw.gentle_morning
+            "classic_alarm" -> com.wakemind.app.R.raw.classic_alarm
+            "deep_wake" -> com.wakemind.app.R.raw.deep_wake
+            "nature_wake" -> com.wakemind.app.R.raw.nature_wake
+            "energetic_wake" -> com.wakemind.app.R.raw.energetic_wake
+            else -> resources.getIdentifier(soundId.trim().lowercase(), "raw", packageName).takeIf { it != 0 }
+          }
+
+      if (resId != null && resId != 0) {
+        val audioAttributes =
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+        val afd = resources.openRawResourceFd(resId)
+        val mediaPlayer = MediaPlayer()
+        mediaPlayer.setAudioAttributes(audioAttributes)
+        mediaPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+        afd.close()
+        mediaPlayer.isLooping = true
+        mediaPlayer.prepare()
+        mediaPlayer.start()
+        player = mediaPlayer
+        return
+      }
+    } catch (rawError: Exception) {
+      Log.w(ALARM_LOG_TAG, "Could not load raw audio resource for $soundId, falling back to system alarm", rawError)
+    }
+
     val uri =
         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
@@ -231,6 +264,7 @@ class AlarmRingtoneService : Service() {
             putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID, alarm.puzzleImageId)
             putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, alarm.puzzleImageType)
             putExtra(AlarmIntents.EXTRA_DIFFICULTY, alarm.difficulty)
+            putExtra(AlarmIntents.EXTRA_SOUND, alarm.sound)
           }
       ContextCompat.startForegroundService(context, intent)
     }
