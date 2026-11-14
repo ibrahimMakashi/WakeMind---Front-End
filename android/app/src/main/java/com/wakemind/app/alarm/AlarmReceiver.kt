@@ -13,10 +13,17 @@ class AlarmReceiver : BroadcastReceiver() {
       Log.e(ALARM_LOG_TAG, "Alarm fired without an id.")
       return
     }
-    handleAlarmFired(context, alarmId)
+    val isSnooze = intent.getBooleanExtra(AlarmIntents.EXTRA_IS_SNOOZE, false)
+    val occurrenceId = intent.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
+    handleAlarmFired(context, alarmId, isSnooze, occurrenceId)
   }
 
-  internal fun handleAlarmFired(context: Context, alarmId: String) {
+  internal fun handleAlarmFired(
+      context: Context,
+      alarmId: String,
+      isSnooze: Boolean = false,
+      occurrenceId: String? = null,
+  ) {
     val store = AlarmStore(context)
     val alarm =
         try {
@@ -27,11 +34,43 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
     if (alarm == null) {
-      Log.e(ALARM_LOG_TAG, "Alarm $alarmId fired but it is not in local storage.")
+      if (isSnooze) {
+        Log.i(ALARM_LOG_TAG, "Snooze fired for deleted alarm $alarmId; cleaning up snooze store and aborting.")
+        if (!occurrenceId.isNullOrBlank()) {
+          SnoozeStore(context).clear(occurrenceId)
+        }
+      } else {
+        Log.e(ALARM_LOG_TAG, "Alarm $alarmId fired but it is not in local storage.")
+      }
       return
     }
 
-    // 1. Recurrence and firing state maintenance (with isolated error handling)
+    if (isSnooze) {
+      // 1. Snooze fire: reuse original occurrenceId and NEVER touch weekly recurrence
+      val finalOccurrenceId =
+          occurrenceId
+              ?: SnoozeStore(context).getPendingForAlarm(alarmId)?.occurrenceId
+              ?: "${alarmId}_${System.currentTimeMillis()}"
+
+      try {
+        SnoozeStore(context).markFired(finalOccurrenceId)
+      } catch (e: Exception) {
+        Log.e(ALARM_LOG_TAG, "Failed to mark snooze record fired for $finalOccurrenceId", e)
+      }
+
+      try {
+        AlarmRingtoneService.start(context, alarm, finalOccurrenceId, snoozeCount = 1)
+        Log.i(ALARM_LOG_TAG, "Snooze alarm $alarmId ($finalOccurrenceId) started ringing with snoozeCount=1.")
+      } catch (ringError: Exception) {
+        Log.e(ALARM_LOG_TAG, "Failed to start ringtone service for snoozed alarm $alarmId.", ringError)
+      }
+      return
+    }
+
+    // 2. Normal alarm fire: generate a fresh unique occurrenceId before starting ringing
+    val freshOccurrenceId = "${alarmId}_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}"
+
+    // Recurrence and firing state maintenance (with isolated error handling)
     if (alarm.repeatDays.isNotEmpty()) {
       try {
         val nextTrigger =
@@ -70,10 +109,10 @@ class AlarmReceiver : BroadcastReceiver() {
       }
     }
 
-    // 2. ALWAYS attempt to start the current alarm ringing, independent of recurrence scheduling
+    // ALWAYS attempt to start the current alarm ringing with snoozeCount=0
     try {
-      AlarmRingtoneService.start(context, alarm)
-      Log.i(ALARM_LOG_TAG, "Alarm $alarmId started ringing.")
+      AlarmRingtoneService.start(context, alarm, freshOccurrenceId, snoozeCount = 0)
+      Log.i(ALARM_LOG_TAG, "Alarm $alarmId ($freshOccurrenceId) started ringing with snoozeCount=0.")
     } catch (ringError: Exception) {
       Log.e(ALARM_LOG_TAG, "Failed to start ringtone service for alarm $alarmId.", ringError)
     }

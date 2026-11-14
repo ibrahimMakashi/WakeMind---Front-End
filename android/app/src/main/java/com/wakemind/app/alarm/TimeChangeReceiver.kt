@@ -13,6 +13,7 @@ class TimeChangeReceiver : BroadcastReceiver() {
     }
     try {
       AlarmScheduler.rescheduleEnabled(context)
+      SnoozeController.recoverPendingSnoozes(context)
       Log.i(ALARM_LOG_TAG, "Rescheduled alarms after $action")
     } catch (error: Exception) {
       Log.e(ALARM_LOG_TAG, "Failed to reschedule alarms after $action", error)

@@ -44,8 +44,24 @@ export function stopRinging() {
   return requireAndroidModule().stopRinging();
 }
 
-export function dismissAlarmAfterPuzzle(alarmId) {
-  return requireAndroidModule().dismissAlarmAfterPuzzle(alarmId);
+export function dismissAlarmAfterPuzzle(alarmId, occurrenceId) {
+  const mod = requireAndroidModule();
+  if (occurrenceId && typeof mod.dismissAlarmOccurrenceAfterPuzzle === 'function') {
+    return mod.dismissAlarmOccurrenceAfterPuzzle(alarmId, occurrenceId);
+  }
+  return mod.dismissAlarmAfterPuzzle(alarmId);
+}
+
+export function canSnoozeAlarm(alarmId, occurrenceId) {
+  const mod = requireAndroidModule();
+  if (typeof mod.canSnooze === 'function') {
+    return mod.canSnooze(alarmId, occurrenceId);
+  }
+  return Promise.resolve(false);
+}
+
+export function snoozeAlarm(alarmId, occurrenceId) {
+  return requireAndroidModule().snoozeAlarm(alarmId, occurrenceId);
 }
 
 export function getActiveRingingAlarm() {

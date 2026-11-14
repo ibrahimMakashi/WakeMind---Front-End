@@ -22,7 +22,7 @@ import {DEFAULT_PUZZLE_IMAGE_ID, findImageById, resolveImageSource} from '../puz
 import {getCustomImageById} from '../puzzle/imageStorage';
 import {cellOrigin, createLayout} from '../puzzle/layout';
 import {COMPLETION_GLOW_MS, COMPLETION_HAPTIC_MS, TILE_GAP_PX} from '../puzzle/motionConfig';
-import {dismissAlarmAfterPuzzle} from '../services/alarmService';
+import {canSnoozeAlarm, dismissAlarmAfterPuzzle, snoozeAlarm} from '../services/alarmService';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
 import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
@@ -52,6 +52,8 @@ function cloneBoardSnapshot(board) {
 
 export function AlarmPuzzleScreen({
   alarmId = '',
+  occurrenceId = '',
+  canSnooze: propCanSnooze = true,
   label = 'Alarm',
   triggerAtMillis = Date.now(),
   puzzleImageId = DEFAULT_PUZZLE_IMAGE_ID,
@@ -219,6 +221,52 @@ export function AlarmPuzzleScreen({
     });
   }, [runScramble, setPhaseSafe]);
 
+  const [snoozeAllowed, setSnoozeAllowed] = useState(propCanSnooze);
+  const [snoozing, setSnoozing] = useState(false);
+  const [snoozeError, setSnoozeError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    if (alarmId && occurrenceId) {
+      canSnoozeAlarm(alarmId, occurrenceId)
+        .then(allowed => {
+          if (active) {
+            setSnoozeAllowed(allowed);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [alarmId, occurrenceId]);
+
+  const handleSnooze = useCallback(async () => {
+    if (!snoozeAllowed || snoozing || isDismissed) {
+      return;
+    }
+    setSnoozing(true);
+    setSnoozeError('');
+    try {
+      const result = await snoozeAlarm(alarmId, occurrenceId);
+      if (!result) {
+        setSnoozeError('Snooze limit reached');
+        setSnoozeAllowed(false);
+      }
+    } catch (err) {
+      setSnoozeError(err?.message || 'Could not snooze alarm');
+    } finally {
+      setSnoozing(false);
+    }
+  }, [alarmId, isDismissed, occurrenceId, snoozeAllowed, snoozing]);
+
+  const handleStopChallenge = useCallback(() => {
+    AccessibilityInfo.announceForAccessibility('Solve puzzle to stop alarm.');
+    try {
+      Vibration.vibrate(80);
+    } catch {}
+  }, []);
+
   const handleAlarmSolved = useCallback(async () => {
     if (dismissingRef.current) {
       return;
@@ -228,7 +276,7 @@ export function AlarmPuzzleScreen({
     try {
       let dismissed = false;
       if (alarmId) {
-        dismissed = await dismissAlarmAfterPuzzle(alarmId);
+        dismissed = await dismissAlarmAfterPuzzle(alarmId, occurrenceId);
       } else {
         dismissed = true;
       }
@@ -270,7 +318,7 @@ export function AlarmPuzzleScreen({
       dismissingRef.current = false;
       setPhaseSafe('idle');
     }
-  }, [alarmId, completionGlow, markSolved, reducedMotion, setPhaseSafe, unlockBannerScale]);
+  }, [alarmId, completionGlow, markSolved, occurrenceId, reducedMotion, setPhaseSafe, unlockBannerScale]);
 
   const finishSwapAnimation = useCallback(async () => {
     snapToBoard(gameStateRef.current, layout);
@@ -588,9 +636,84 @@ export function AlarmPuzzleScreen({
             </View>
           </Animated.View>
         ) : (
-          <Text style={[typography.caption, styles.instructionText, {color: colors.muted}]}>
-            Arrange all tiles to unlock your morning
-          </Text>
+          <>
+            <Text style={[typography.caption, styles.instructionText, {color: colors.muted}]}>
+              Arrange all tiles to unlock your morning
+            </Text>
+
+            {/* Ringing Actions: Snooze & Stop */}
+            <View style={styles.actionButtonsRow}>
+              <Pressable
+                accessibilityHint={
+                  snoozeAllowed
+                    ? 'Snoozes alarm for 5 minutes'
+                    : 'Snooze limit of 1 has already been reached'
+                }
+                accessibilityLabel={
+                  snoozeAllowed
+                    ? 'Snooze alarm for 5 minutes'
+                    : 'Snooze limit reached'
+                }
+                accessibilityRole="button"
+                disabled={!snoozeAllowed || snoozing}
+                onPress={handleSnooze}
+                style={({pressed}) => [
+                  styles.actionBtn,
+                  {
+                    backgroundColor: snoozeAllowed ? colors.surfaceRaised : colors.surfaceDeep,
+                    borderColor: snoozeAllowed ? colors.border : 'transparent',
+                  },
+                  !snoozeAllowed && styles.btnDisabled,
+                  pressed && snoozeAllowed && styles.pressed,
+                ]}>
+                <AppIcon
+                  color={snoozeAllowed ? colors.accent : colors.muted}
+                  name="clock-outline"
+                  size={15}
+                />
+                <Text
+                  style={[
+                    typography.caption,
+                    styles.actionBtnText,
+                    {color: snoozeAllowed ? colors.text : colors.muted},
+                  ]}>
+                  {snoozeAllowed
+                    ? (snoozing ? 'SNOOZING…' : 'SNOOZE — 5 MIN')
+                    : 'SNOOZE (LIMIT REACHED)'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityHint="Focuses puzzle board. Puzzle must be completed to stop alarm."
+                accessibilityLabel="Stop alarm by solving puzzle"
+                accessibilityRole="button"
+                onPress={handleStopChallenge}
+                style={({pressed}) => [
+                  styles.actionBtn,
+                  {
+                    backgroundColor: colors.surfaceRaised,
+                    borderColor: colors.accent,
+                  },
+                  pressed && styles.pressed,
+                ]}>
+                <AppIcon color={colors.accent} name="puzzle-outline" size={15} />
+                <Text
+                  style={[
+                    typography.caption,
+                    styles.actionBtnText,
+                    {color: colors.accent},
+                  ]}>
+                  STOP — SOLVE PUZZLE
+                </Text>
+              </Pressable>
+            </View>
+
+            {Boolean(snoozeError) && (
+              <Text style={[typography.caption, styles.snoozeErrorText, {color: colors.danger}]}>
+                {snoozeError}
+              </Text>
+            )}
+          </>
         )}
       </View>
     </View>
@@ -695,5 +818,39 @@ const styles = StyleSheet.create({
   },
   unlockedTextWrap: {
     flex: 1,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    maxWidth: 380,
+    width: '100%',
+  },
+  actionBtn: {
+    alignItems: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  snoozeErrorText: {
+    marginTop: 6,
+    textAlign: 'center',
   },
 });

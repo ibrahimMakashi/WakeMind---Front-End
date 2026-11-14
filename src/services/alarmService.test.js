@@ -1,8 +1,10 @@
 import {NativeModules, Platform} from 'react-native';
 import {
+  canSnoozeAlarm,
   dismissAlarmAfterPuzzle,
   getActiveRingingAlarm,
   playAudioPreview,
+  snoozeAlarm,
   stopAudioPreview,
   stopRinging,
 } from './alarmService';
@@ -26,6 +28,8 @@ describe('alarmService', () => {
       getActiveRingingAlarm: jest.fn().mockResolvedValue({id: 'test-1'}),
       playAudioPreview: jest.fn().mockResolvedValue(true),
       stopAudioPreview: jest.fn().mockResolvedValue(true),
+      canSnooze: jest.fn().mockResolvedValue(true),
+      snoozeAlarm: jest.fn().mockResolvedValue(true),
     };
   });
 
@@ -56,6 +60,16 @@ describe('alarmService', () => {
 
     await stopAudioPreview();
     expect(NativeModules.AlarmModule.stopAudioPreview).toHaveBeenCalled();
+  });
+
+  test('delegates canSnoozeAlarm and snoozeAlarm to native AlarmModule', async () => {
+    const can = await canSnoozeAlarm('alarm-123', 'occ-456');
+    expect(NativeModules.AlarmModule.canSnooze).toHaveBeenCalledWith('alarm-123', 'occ-456');
+    expect(can).toBe(true);
+
+    const snoozed = await snoozeAlarm('alarm-123', 'occ-456');
+    expect(NativeModules.AlarmModule.snoozeAlarm).toHaveBeenCalledWith('alarm-123', 'occ-456');
+    expect(snoozed).toBe(true);
   });
 
   test('throws on non-Android platform', () => {

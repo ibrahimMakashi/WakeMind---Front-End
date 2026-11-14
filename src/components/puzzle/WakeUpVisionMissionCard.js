@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {
   Image,
   Pressable,
@@ -10,7 +10,6 @@ import {spacing} from '../../constants/theme';
 import {useTheme} from '../../theme/ThemeProvider';
 import {AppIcon} from '../AppIcon';
 import {SurfaceCard} from '../SurfaceCard';
-import {PuzzlePreviewModal} from './PuzzlePreviewModal';
 
 const DIFFICULTY_CONFIG = [
   {
@@ -72,7 +71,6 @@ export function WakeUpVisionMissionCard({
   disabled = false,
 }) {
   const {colors, typography, radius} = useTheme();
-  const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const currentDiff = DIFFICULTY_CONFIG.find(d => d.id === difficulty) || DIFFICULTY_CONFIG[0];
 
   return (
@@ -106,20 +104,15 @@ export function WakeUpVisionMissionCard({
       </View>
 
       {/* 7.2 Large Selected-Image Preview with Grid Overlay */}
-      <Pressable
-        accessibilityHint="Opens enlarged full-screen grid view"
-        accessibilityLabel={`Puzzle preview ${currentDiff.grid} grid, ${currentDiff.tiles} tiles. Tap to enlarge.`}
-        accessibilityRole="button"
-        disabled={disabled}
-        onPress={() => setPreviewModalVisible(true)}
-        style={({pressed}) => [
+      <View
+        accessibilityLabel={`Puzzle preview ${currentDiff.grid} grid, ${currentDiff.tiles} tiles.`}
+        style={[
           styles.previewContainer,
           {
             backgroundColor: colors.surfaceDeep,
             borderColor: colors.border,
             borderRadius: radius.md,
           },
-          pressed && !disabled && styles.pressed,
         ]}>
         {currentImage?.source ? (
           <Image
@@ -194,7 +187,7 @@ export function WakeUpVisionMissionCard({
             </Pressable>
           </View>
         </View>
-      </Pressable>
+      </View>
 
       {/* PART 8: Puzzle Grid Difficulty Selection */}
       <View style={styles.difficultySection}>
@@ -247,15 +240,6 @@ export function WakeUpVisionMissionCard({
           })}
         </View>
       </View>
-
-      {/* Enlarged Modal Preview */}
-      <PuzzlePreviewModal
-        difficulty={difficulty}
-        imageSource={currentImage?.source}
-        onClose={() => setPreviewModalVisible(false)}
-        title="Wake-Up Puzzle Grid"
-        visible={previewModalVisible}
-      />
     </SurfaceCard>
   );
 }

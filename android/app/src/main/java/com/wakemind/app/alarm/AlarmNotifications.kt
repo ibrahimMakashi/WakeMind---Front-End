@@ -40,6 +40,8 @@ internal object AlarmNotifications {
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
       difficulty: String? = null,
+      occurrenceId: String = "${alarmId}_${triggerAtMillis}",
+      canSnooze: Boolean = true,
   ): Notification {
     val activityIntent =
         ringingIntent(
@@ -51,26 +53,58 @@ internal object AlarmNotifications {
             puzzleImageId,
             puzzleImageType,
             difficulty,
+            occurrenceId,
+            canSnooze,
         )
-    val pending =
+    val contentPending =
         PendingIntent.getActivity(
             context,
-            requestCode(alarmId),
+            contentRequestCode(alarmId, occurrenceId),
             activityIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-    return NotificationCompat.Builder(context, CHANNEL_ID)
-        .setSmallIcon(com.wakemind.app.R.drawable.ic_alarm_notification)
-        .setContentTitle("WakeMind")
-        .setContentText(label)
-        .setCategory(NotificationCompat.CATEGORY_ALARM)
-        .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        .setOngoing(true)
-        .setAutoCancel(false)
-        .setFullScreenIntent(pending, true)
-        .setContentIntent(pending)
-        .build()
+
+    val stopPending =
+        PendingIntent.getActivity(
+            context,
+            stopActionRequestCode(alarmId, occurrenceId),
+            activityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    val builder =
+        NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(com.wakemind.app.R.drawable.ic_alarm_notification)
+            .setContentTitle("WakeMind")
+            .setContentText(label)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setFullScreenIntent(contentPending, true)
+            .setContentIntent(contentPending)
+            .addAction(com.wakemind.app.R.drawable.ic_alarm_notification, "STOP", stopPending)
+
+    if (canSnooze) {
+      val snoozeIntent =
+          Intent(context, AlarmActionReceiver::class.java).apply {
+            action = AlarmIntents.ACTION_SNOOZE
+            putExtra(AlarmIntents.EXTRA_ALARM_ID, alarmId)
+            putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, occurrenceId)
+            putExtra(AlarmIntents.EXTRA_IS_SNOOZE, true)
+          }
+      val snoozePending =
+          PendingIntent.getBroadcast(
+              context,
+              snoozeActionRequestCode(alarmId, occurrenceId),
+              snoozeIntent,
+              PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+          )
+      builder.addAction(com.wakemind.app.R.drawable.ic_alarm_notification, "SNOOZE 5 MIN", snoozePending)
+    }
+
+    return builder.build()
   }
 
   fun ringingIntent(
@@ -82,15 +116,22 @@ internal object AlarmNotifications {
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
       difficulty: String? = null,
+      occurrenceId: String? = null,
+      canSnooze: Boolean = true,
   ): Intent {
-    val storeAlarm = if (puzzleImageId.isNullOrBlank() || difficulty.isNullOrBlank()) AlarmStore(context).get(alarmId) else null
+    val storeAlarm =
+        if (puzzleImageId.isNullOrBlank() || difficulty.isNullOrBlank()) AlarmStore(context).get(alarmId)
+        else null
     val finalImageId = puzzleImageId ?: storeAlarm?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
     val finalImageType = puzzleImageType ?: storeAlarm?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
     val finalDifficulty = difficulty ?: storeAlarm?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
+    val finalOccId = occurrenceId ?: "${alarmId}_${triggerAtMillis}"
 
     return Intent(context, RingingActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra(AlarmIntents.EXTRA_ALARM_ID, alarmId)
+      putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, finalOccId)
+      putExtra(AlarmIntents.EXTRA_CAN_SNOOZE, canSnooze)
       putExtra(AlarmIntents.EXTRA_LABEL, label)
       putExtra(AlarmIntents.EXTRA_VIBRATE, vibrate)
       putExtra(AlarmIntents.EXTRA_TRIGGER_AT, triggerAtMillis)
@@ -100,7 +141,15 @@ internal object AlarmNotifications {
     }
   }
 
-  private fun requestCode(alarmId: String): Int {
-    return (alarmId.hashCode() xor 0x5F3759DF.toInt()) and 0x7FFFFFFF
+  fun contentRequestCode(alarmId: String, occurrenceId: String): Int {
+    return ("$alarmId:$occurrenceId:content").hashCode() and 0x7FFFFFFF
+  }
+
+  fun stopActionRequestCode(alarmId: String, occurrenceId: String): Int {
+    return ("$alarmId:$occurrenceId:stop_action").hashCode() and 0x7FFFFFFF
+  }
+
+  fun snoozeActionRequestCode(alarmId: String, occurrenceId: String): Int {
+    return ("$alarmId:$occurrenceId:snooze_action").hashCode() and 0x7FFFFFFF
   }
 }

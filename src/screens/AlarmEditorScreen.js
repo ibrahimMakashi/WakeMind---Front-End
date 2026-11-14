@@ -32,7 +32,7 @@ import {
   resolveImageSource,
 } from '../puzzle/imageCatalog';
 import {pickImageFromPhone} from '../puzzle/imageStorage';
-import {deleteAlarm, saveAlarm, stopAudioPreview} from '../services/alarmService';
+import {deleteAlarm, playAudioPreview, saveAlarm, stopAudioPreview} from '../services/alarmService';
 import {showRadialTimePicker} from '../services/timePickerService';
 import {useTheme} from '../theme/ThemeProvider';
 import {buildAlarmSaveToast} from '../utils/alarmCountdown';
@@ -73,6 +73,7 @@ function AlarmEditorForm({alarm}) {
   const [selectedSoundId, setSelectedSoundId] = useState(
     alarm?.alarmSoundId || alarm?.sound || DEFAULT_ALARM_SOUND_ID,
   );
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
   const [soundModalVisible, setSoundModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -120,6 +121,26 @@ function AlarmEditorForm({alarm}) {
     };
   }, []);
 
+  const handleTogglePreview = useCallback(async () => {
+    if (isPreviewPlaying) {
+      await stopAudioPreview().catch(() => {});
+      setIsPreviewPlaying(false);
+    } else {
+      setIsPreviewPlaying(true);
+      try {
+        await playAudioPreview(selectedSoundId);
+      } catch (_err) {
+        setIsPreviewPlaying(false);
+      }
+    }
+  }, [isPreviewPlaying, selectedSoundId]);
+
+  const handleSelectSound = useCallback(soundId => {
+    setSelectedSoundId(soundId);
+    setSoundModalVisible(false);
+    setIsPreviewPlaying(false);
+  }, []);
+
   const busy = saving || deleting || pickingTime || imageActionLoading;
   const editing = Boolean(alarm && alarm.id);
 
@@ -157,14 +178,23 @@ function AlarmEditorForm({alarm}) {
     [recordRecent],
   );
 
-  const handleSelectRecentImage = useCallback(
-    async selected => {
-      setPuzzleImage(selected);
-      setGalleryVisible(false);
-      await recordRecent(selected);
-    },
-    [recordRecent],
-  );
+  const handleSelectRecentImage = useCallback(selected => {
+    if (!selected) {
+      return;
+    }
+    const uri = selected.uri || selected.source?.uri;
+    if (!uri) {
+      return;
+    }
+    setGalleryVisible(false);
+    setPendingCropImage({
+      uri,
+      title: selected.title || 'Recent Photo',
+      width: selected.width,
+      height: selected.height,
+    });
+    setCropVisible(true);
+  }, []);
 
   const handleChooseFromPhone = useCallback(async () => {
     setImageActionLoading(true);
@@ -204,6 +234,7 @@ function AlarmEditorForm({alarm}) {
     setSaving(true);
     setError('');
     await stopAudioPreview().catch(() => {});
+    setIsPreviewPlaying(false);
     try {
       const saved = await saveAlarm(
         buildSavePayload({
@@ -325,18 +356,92 @@ function AlarmEditorForm({alarm}) {
           onReplacePress={() => setGalleryVisible(true)}
         />
 
-        {/* 5. Alarm Settings Card */}
+        {/* 5. Dedicated Alarm Sound Card */}
+        <SurfaceCard style={[styles.soundSection, {borderRadius: radius.lg}]}>
+          <View style={styles.soundHeaderRow}>
+            <View
+              style={[
+                styles.soundIconTile,
+                {backgroundColor: colors.surfaceDeep, borderRadius: radius.icon},
+              ]}>
+              <AppIcon color={colors.accent} name="music-note" size={20} />
+            </View>
+            <View style={styles.soundHeaderTexts}>
+              <Text style={[typography.caption, styles.soundSectionLabel, {color: colors.muted}]}>
+                ALARM SOUND
+              </Text>
+              <Text style={[typography.bodyStrong, styles.soundTitle, {color: colors.text}]}>
+                {findAlarmSound(selectedSoundId).name}
+              </Text>
+              <Text style={[typography.caption, styles.soundDescription, {color: colors.textSoft}]}>
+                {findAlarmSound(selectedSoundId).description}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.soundActionsRow}>
+            <Pressable
+              accessibilityHint="Plays or stops audio preview of the selected alarm sound"
+              accessibilityLabel={isPreviewPlaying ? 'Stop sound preview' : 'Preview selected sound'}
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={handleTogglePreview}
+              style={({pressed}) => [
+                styles.soundBtn,
+                {
+                  backgroundColor: isPreviewPlaying ? colors.accent : colors.surfaceDeep,
+                  borderColor: isPreviewPlaying ? colors.accent : colors.border,
+                  borderRadius: radius.pill,
+                },
+                pressed && styles.pressed,
+                busy && styles.disabled,
+              ]}>
+              <AppIcon
+                color={isPreviewPlaying ? colors.accentText : colors.text}
+                name={isPreviewPlaying ? 'stop' : 'play'}
+                size={14}
+              />
+              <Text
+                style={[
+                  typography.caption,
+                  styles.soundBtnText,
+                  {color: isPreviewPlaying ? colors.accentText : colors.text},
+                ]}>
+                {isPreviewPlaying ? 'Stop' : 'Preview'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityHint="Opens sound selection modal to choose a different alarm tune"
+              accessibilityLabel={`Change alarm sound from ${findAlarmSound(selectedSoundId).name}`}
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={() => setSoundModalVisible(true)}
+              style={({pressed}) => [
+                styles.soundBtn,
+                {
+                  backgroundColor: colors.surfaceDeep,
+                  borderColor: colors.border,
+                  borderRadius: radius.pill,
+                },
+                pressed && styles.pressed,
+                busy && styles.disabled,
+              ]}>
+              <AppIcon color={colors.accent} name="playlist-music" size={14} />
+              <Text
+                style={[
+                  typography.caption,
+                  styles.soundBtnText,
+                  {color: colors.accent},
+                ]}>
+                Change
+              </Text>
+            </Pressable>
+          </View>
+        </SurfaceCard>
+
+        {/* 6. Alarm Settings Card */}
         <SurfaceCard style={[styles.settings, {borderRadius: radius.lg}]}>
-          <SettingsRow
-            disabled={busy}
-            icon="bell-outline"
-            onPress={() => setSoundModalVisible(true)}
-            showChevron
-            subtitle={findAlarmSound(selectedSoundId).description || 'Alarm ringtone'}
-            title="Alarm Sound"
-            trailing={findAlarmSound(selectedSoundId).name}
-          />
-          <SettingsDivider />
           <SettingsRow
             disabled={busy}
             icon="cellphone-basic"
@@ -407,7 +512,7 @@ function AlarmEditorForm({alarm}) {
       {/* Sound Selection Modal */}
       <SoundSelectionModal
         onClose={() => setSoundModalVisible(false)}
-        onSelectSound={id => setSelectedSoundId(id)}
+        onSelectSound={handleSelectSound}
         selectedSoundId={selectedSoundId}
         visible={soundModalVisible}
       />
@@ -468,6 +573,59 @@ const styles = StyleSheet.create({
   settings: {
     marginTop: spacing.md,
     paddingVertical: spacing.xs,
+  },
+  soundSection: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  soundHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  soundIconTile: {
+    alignItems: 'center',
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  soundHeaderTexts: {
+    flex: 1,
+    gap: 2,
+  },
+  soundSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  soundTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  soundDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  soundActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  soundBtn: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  soundBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   testButton: {
     alignItems: 'center',

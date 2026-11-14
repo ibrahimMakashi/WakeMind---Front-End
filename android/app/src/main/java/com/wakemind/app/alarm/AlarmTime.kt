@@ -6,6 +6,7 @@ import java.util.TimeZone
 internal object AlarmTime {
   const val TEST_OFFSET_SECONDS = 60
   const val RINGING_SAFETY_MINUTES = 15
+  const val SNOOZE_DURATION_MILLIS = 300_000L
 
   val ORDERED_WEEKDAYS = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
   val VALID_WEEKDAYS = ORDERED_WEEKDAYS.toSet()

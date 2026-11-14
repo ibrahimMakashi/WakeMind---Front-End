@@ -52,6 +52,13 @@
         android:name=".alarm.AlarmReceiver"
         android:exported="false" />
       <receiver
+        android:name=".alarm.AlarmActionReceiver"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="com.wakemind.app.alarm.SNOOZE" />
+        </intent-filter>
+      </receiver>
+      <receiver
         android:name=".alarm.BootReceiver"
         android:exported="true">
         <intent-filter>

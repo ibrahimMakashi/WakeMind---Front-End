@@ -170,6 +170,58 @@ class AlarmModule(reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun dismissAlarmOccurrenceAfterPuzzle(alarmId: String, occurrenceId: String, promise: Promise) {
+    try {
+      if (alarmId.isBlank()) {
+        throw IllegalArgumentException("Alarm ID cannot be empty.")
+      }
+      val dismissed = AlarmRingtoneService.dismissAfterPuzzle(reactApplicationContext, alarmId, occurrenceId)
+      if (dismissed) {
+        RingingActivity.finishActive()
+      }
+      promise.resolve(dismissed)
+    } catch (error: IllegalArgumentException) {
+      promise.reject("ALARM_VALIDATION", error.message, error)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not dismiss alarm $alarmId ($occurrenceId).", error)
+      promise.reject("ALARM_DISMISS_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun canSnooze(alarmId: String, occurrenceId: String, promise: Promise) {
+    try {
+      if (alarmId.isBlank() || occurrenceId.isBlank()) {
+        promise.resolve(false)
+        return
+      }
+      val allowed = SnoozeController.canSnooze(reactApplicationContext, alarmId, occurrenceId)
+      promise.resolve(allowed)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not check snooze status for alarm $alarmId ($occurrenceId)", error)
+      promise.resolve(false)
+    }
+  }
+
+  @ReactMethod
+  fun snoozeAlarm(alarmId: String, occurrenceId: String, promise: Promise) {
+    try {
+      if (alarmId.isBlank() || occurrenceId.isBlank()) {
+        throw IllegalArgumentException("Alarm ID and occurrence ID cannot be empty.")
+      }
+      val snoozed = SnoozeController.requestSnooze(reactApplicationContext, alarmId, occurrenceId)
+      promise.resolve(snoozed)
+    } catch (error: IllegalArgumentException) {
+      promise.reject("ALARM_VALIDATION", error.message, error)
+    } catch (error: IllegalStateException) {
+      promise.reject("ALARM_STATE_ERROR", error.message, error)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not snooze alarm $alarmId ($occurrenceId)", error)
+      promise.reject("ALARM_SNOOZE_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
   fun getActiveRingingAlarm(promise: Promise) {
     try {
       val isRinging = AlarmRingtoneService.isRinging

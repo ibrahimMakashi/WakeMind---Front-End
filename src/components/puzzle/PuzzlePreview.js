@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {
   Image,
   Pressable,
@@ -10,7 +10,6 @@ import {AppIcon} from '../AppIcon';
 import {GRID_SIZES} from '../../puzzle/constants';
 import {spacing} from '../../constants/theme';
 import {useTheme} from '../../theme/ThemeProvider';
-import {PuzzlePreviewModal} from './PuzzlePreviewModal';
 
 export function getDifficultyMeta(difficulty) {
   const norm = (difficulty || 'easy').toLowerCase();
@@ -56,41 +55,24 @@ export function PuzzlePreview({
   style,
 }) {
   const {colors, typography, radius} = useTheme();
-  const [modalVisible, setModalVisible] = useState(false);
 
   const resolvedSource = imageSource || (imageUri ? {uri: imageUri} : null);
   const meta = getDifficultyMeta(difficulty);
   const side = gridSize || meta.side;
   const lines = Array.from({length: side - 1}, (_, i) => ((i + 1) / side) * 100);
 
-  const handlePreviewPress = () => {
-    if (disabled) {
-      return;
-    }
-    if (onPress) {
-      onPress();
-    } else {
-      setModalVisible(true);
-    }
-  };
-
   return (
     <View style={[styles.container, style]}>
-      {/* Interactive Grid Card */}
-      <Pressable
-        accessibilityHint="Opens enlarged full-screen grid view"
-        accessibilityLabel={`Puzzle preview ${side} by ${side} grid, ${meta.tiles} tiles. Tap to enlarge.`}
-        accessibilityRole="button"
-        disabled={disabled}
-        onPress={handlePreviewPress}
-        style={({pressed}) => [
+      {/* Inline Grid Card */}
+      <View
+        accessibilityLabel={`Puzzle preview ${side} by ${side} grid, ${meta.tiles} tiles.`}
+        style={[
           styles.previewFrame,
           {
             backgroundColor: colors.surfaceDeep,
             borderColor: colors.border,
             borderRadius: radius.md,
           },
-          pressed && !disabled && styles.pressed,
         ]}>
         {resolvedSource ? (
           <Image
@@ -209,7 +191,7 @@ export function PuzzlePreview({
             )}
           </View>
         </View>
-      </Pressable>
+      </View>
 
       {/* Description Line */}
       <View style={styles.footer}>
@@ -217,15 +199,6 @@ export function PuzzlePreview({
           {meta.description}
         </Text>
       </View>
-
-      {/* Full-view Modal */}
-      <PuzzlePreviewModal
-        difficulty={difficulty}
-        imageSource={resolvedSource}
-        onClose={() => setModalVisible(false)}
-        title="Wake-Up Puzzle Grid"
-        visible={modalVisible}
-      />
     </View>
   );
 }

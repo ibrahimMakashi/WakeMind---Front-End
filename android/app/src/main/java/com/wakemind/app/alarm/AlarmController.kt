@@ -185,6 +185,12 @@ internal object AlarmController {
 
   fun delete(context: Context, id: String) {
     AlarmScheduler.cancel(context, id)
+    val snoozeStore = SnoozeStore(context)
+    val pending = snoozeStore.getPendingForAlarm(id)
+    if (pending != null) {
+      AlarmScheduler.cancelSnooze(context, id, pending.occurrenceId)
+    }
+    snoozeStore.clearForAlarm(id)
     val removed = AlarmStore(context).delete(id)
     if (!removed) {
       throw IllegalArgumentException("Alarm not found.")

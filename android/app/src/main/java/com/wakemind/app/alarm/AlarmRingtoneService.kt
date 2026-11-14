@@ -38,6 +38,9 @@ class AlarmRingtoneService : Service() {
       stopRinging()
       return START_NOT_STICKY
     }
+    val occurrenceId =
+        intent.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID) ?: "${alarmId}_${System.currentTimeMillis()}"
+    val snoozeCount = intent.getIntExtra("snoozeCount", 0)
     val label = intent.getStringExtra(AlarmIntents.EXTRA_LABEL) ?: AlarmDefaults.DEFAULT_LABEL
     val vibrate = intent.getBooleanExtra(AlarmIntents.EXTRA_VIBRATE, true)
     val triggerAt = intent.getLongExtra(AlarmIntents.EXTRA_TRIGGER_AT, System.currentTimeMillis())
@@ -45,14 +48,29 @@ class AlarmRingtoneService : Service() {
     val puzzleImageType = intent.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE)
     val difficulty = intent.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
     val sound = intent.getStringExtra(AlarmIntents.EXTRA_SOUND) ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
-    promoteToForeground(alarmId, label, vibrate, triggerAt, puzzleImageId, puzzleImageType, difficulty)
-    if (isRinging && currentAlarmId == alarmId) {
+    val canSnooze = snoozeCount == 0
+
+    promoteToForeground(
+        alarmId,
+        label,
+        vibrate,
+        triggerAt,
+        puzzleImageId,
+        puzzleImageType,
+        difficulty,
+        occurrenceId,
+        canSnooze,
+    )
+    if (isRinging && currentAlarmId == alarmId && currentOccurrenceId == occurrenceId) {
       return START_REDELIVER_INTENT
     }
     try {
       startAlert(vibrate, sound)
       currentAlarmId = alarmId
       currentRingingAlarmId = alarmId
+      currentOccurrenceId = occurrenceId
+      currentSnoozeCount = snoozeCount
+      currentAlarm = AlarmStore(this).get(alarmId)
       isRinging = true
       scheduleSafetyStop()
     } catch (error: Exception) {
@@ -74,6 +92,8 @@ class AlarmRingtoneService : Service() {
       puzzleImageId: String? = null,
       puzzleImageType: String? = null,
       difficulty: String? = null,
+      occurrenceId: String = "${alarmId}_${triggerAtMillis}",
+      canSnooze: Boolean = true,
   ) {
     AlarmNotifications.ensureChannel(this)
     val notification =
@@ -86,6 +106,8 @@ class AlarmRingtoneService : Service() {
             puzzleImageId,
             puzzleImageType,
             difficulty,
+            occurrenceId,
+            canSnooze,
         )
     val type =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -212,6 +234,9 @@ class AlarmRingtoneService : Service() {
     releaseAlert()
     isRinging = false
     currentRingingAlarmId = null
+    currentOccurrenceId = null
+    currentSnoozeCount = 0
+    currentAlarm = null
     currentAlarmId = null
     try {
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -250,14 +275,24 @@ class AlarmRingtoneService : Service() {
   }
 
   companion object {
-    @Volatile var isRinging: Boolean = false
-    @Volatile var currentRingingAlarmId: String? = null
+    @Volatile internal var isRinging: Boolean = false
+    @Volatile internal var currentRingingAlarmId: String? = null
+    @Volatile internal var currentOccurrenceId: String? = null
+    @Volatile internal var currentSnoozeCount: Int = 0
+    @Volatile internal var currentAlarm: StoredAlarm? = null
 
-    internal fun start(context: Context, alarm: StoredAlarm) {
+    internal fun start(
+        context: Context,
+        alarm: StoredAlarm,
+        occurrenceId: String = "${alarm.id}_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}",
+        snoozeCount: Int = 0,
+    ) {
       val intent =
           Intent(context, AlarmRingtoneService::class.java).apply {
             action = AlarmIntents.ACTION_START
             putExtra(AlarmIntents.EXTRA_ALARM_ID, alarm.id)
+            putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, occurrenceId)
+            putExtra("snoozeCount", snoozeCount)
             putExtra(AlarmIntents.EXTRA_LABEL, alarm.label)
             putExtra(AlarmIntents.EXTRA_VIBRATE, alarm.vibrate)
             putExtra(AlarmIntents.EXTRA_TRIGGER_AT, alarm.triggerAtMillis)
@@ -277,17 +312,31 @@ class AlarmRingtoneService : Service() {
       context.startService(intent)
     }
 
-    internal fun dismissAfterPuzzle(context: Context, alarmId: String): Boolean {
+    internal fun dismissAfterPuzzle(context: Context, alarmId: String, occurrenceId: String? = null): Boolean {
       if (alarmId.isBlank()) {
         throw IllegalArgumentException("Alarm ID cannot be blank.")
       }
       val activeId = currentRingingAlarmId
+      val activeOccId = currentOccurrenceId
       if (!isRinging || activeId == null) {
         return false
       }
       if (activeId != alarmId) {
         Log.w(ALARM_LOG_TAG, "Dismissal rejected: requested $alarmId but ringing $activeId")
         return false
+      }
+      if (!occurrenceId.isNullOrBlank() && activeOccId != null && activeOccId != occurrenceId) {
+        Log.w(ALARM_LOG_TAG, "Dismissal rejected: requested occurrence $occurrenceId but ringing $activeOccId")
+        return false
+      }
+
+      // Occurrence-specific cleanup! (Section 14 & 26)
+      if (activeOccId != null) {
+        try {
+          SnoozeStore(context).clear(activeOccId)
+        } catch (e: Exception) {
+          Log.e(ALARM_LOG_TAG, "Failed to clear snooze store for occurrence $activeOccId", e)
+        }
       }
       stop(context)
       return true

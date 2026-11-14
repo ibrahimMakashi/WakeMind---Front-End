@@ -39,7 +39,7 @@ internal object AlarmScheduler {
       throw IllegalArgumentException("Alarm time is already in the past.")
     }
     cancel(context, alarm.id)
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     val operation =
         PendingIntent.getBroadcast(
             context,
@@ -49,7 +49,9 @@ internal object AlarmScheduler {
         )
     val show = showPendingIntent(context)
     try {
-      alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(alarm.triggerAtMillis, show), operation)
+      if (alarmManager != null && operation != null && show != null) {
+        alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(alarm.triggerAtMillis, show), operation)
+      }
     } catch (error: SecurityException) {
       Log.e(ALARM_LOG_TAG, "setAlarmClock rejected for ${alarm.id}", error)
       val latestAccess = currentAccess(context)
@@ -62,7 +64,7 @@ internal object AlarmScheduler {
   }
 
   fun cancel(context: Context, alarmId: String) {
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     val pending =
         PendingIntent.getBroadcast(
             context,
@@ -71,9 +73,75 @@ internal object AlarmScheduler {
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
     if (pending != null) {
-      alarmManager.cancel(pending)
+      alarmManager?.cancel(pending)
       pending.cancel()
       Log.i(ALARM_LOG_TAG, "Cancelled $alarmId")
+    }
+  }
+
+  fun scheduleSnooze(context: Context, record: SnoozeRecord) {
+    val access = currentAccess(context)
+    if (access != ExactAlarmAccess.GRANTED) {
+      Log.e(ALARM_LOG_TAG, "Refusing to schedule snooze for ${record.alarmId} (${record.occurrenceId}): $access")
+      throw AlarmScheduleException(access)
+    }
+    if (record.triggerAtMillis <= System.currentTimeMillis()) {
+      throw IllegalArgumentException("Snooze trigger time is in the past.")
+    }
+    cancelSnooze(context, record.alarmId, record.occurrenceId)
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+    val operation =
+        PendingIntent.getBroadcast(
+            context,
+            snoozeRequestCode(record.alarmId, record.occurrenceId),
+            snoozeFireIntent(context, record.alarmId, record.occurrenceId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    val show = showPendingIntent(context)
+    try {
+      if (alarmManager != null && operation != null && show != null) {
+        alarmManager.setAlarmClock(
+            AlarmManager.AlarmClockInfo(record.triggerAtMillis, show),
+            operation,
+        )
+      }
+    } catch (error: SecurityException) {
+      Log.e(ALARM_LOG_TAG, "setAlarmClock rejected snooze for ${record.alarmId} (${record.occurrenceId})", error)
+      val latestAccess = currentAccess(context)
+      if (latestAccess != ExactAlarmAccess.GRANTED) {
+        throw AlarmScheduleException(latestAccess)
+      }
+      throw IllegalStateException("Android rejected the exact snooze alarm.", error)
+    }
+    Log.i(ALARM_LOG_TAG, "Scheduled snooze for ${record.alarmId} (${record.occurrenceId}) at ${record.triggerAtMillis}")
+  }
+
+  fun cancelSnooze(context: Context, alarmId: String, occurrenceId: String) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+    val pending =
+        PendingIntent.getBroadcast(
+            context,
+            snoozeRequestCode(alarmId, occurrenceId),
+            snoozeFireIntent(context, alarmId, occurrenceId),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+    if (pending != null) {
+      alarmManager?.cancel(pending)
+      pending.cancel()
+      Log.i(ALARM_LOG_TAG, "Cancelled snooze for $alarmId ($occurrenceId)")
+    }
+  }
+
+  fun snoozeRequestCode(alarmId: String, occurrenceId: String): Int {
+    return ("$alarmId:$occurrenceId:snooze").hashCode() and 0x7FFFFFFF
+  }
+
+  private fun snoozeFireIntent(context: Context, alarmId: String, occurrenceId: String): Intent {
+    return Intent(context, AlarmReceiver::class.java).apply {
+      action = AlarmIntents.ACTION_FIRE
+      putExtra(AlarmIntents.EXTRA_ALARM_ID, alarmId)
+      putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, occurrenceId)
+      putExtra(AlarmIntents.EXTRA_IS_SNOOZE, true)
     }
   }
 
@@ -94,8 +162,9 @@ internal object AlarmScheduler {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
       return ExactAlarmPolicy.decide(Build.VERSION.SDK_INT, canScheduleExactAlarms = true)
     }
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
-    return ExactAlarmPolicy.decide(Build.VERSION.SDK_INT, alarmManager.canScheduleExactAlarms())
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+    val canSchedule = alarmManager?.canScheduleExactAlarms() ?: true
+    return ExactAlarmPolicy.decide(Build.VERSION.SDK_INT, canSchedule)
   }
 
   private fun fireIntent(context: Context, alarmId: String): Intent {
@@ -105,7 +174,7 @@ internal object AlarmScheduler {
     }
   }
 
-  private fun showPendingIntent(context: Context): PendingIntent {
+  private fun showPendingIntent(context: Context): PendingIntent? {
     val intent =
         Intent(context, MainActivity::class.java).apply {
           flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP

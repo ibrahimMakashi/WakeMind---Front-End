@@ -57,9 +57,21 @@ class RingingActivity : ReactActivity() {
               intent?.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
                   ?: AlarmDefaults.DIFFICULTY_EASY
 
+          val occurrenceId =
+              intent?.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
+                  ?: AlarmRingtoneService.currentOccurrenceId
+                  ?: "${alarmId}_${triggerAt}"
+          val canSnooze =
+              intent?.getBooleanExtra(
+                  AlarmIntents.EXTRA_CAN_SNOOZE,
+                  AlarmRingtoneService.currentSnoozeCount == 0,
+              ) ?: (AlarmRingtoneService.currentSnoozeCount == 0)
+
           return Bundle().apply {
             putString("mode", AlarmIntents.MODE_ALARM)
             putString("alarmId", alarmId)
+            putString("occurrenceId", occurrenceId)
+            putBoolean("canSnooze", canSnooze)
             putString("label", label)
             putDouble("triggerAtMillis", triggerAt.toDouble())
             putString("puzzleImageId", puzzleImageId)
