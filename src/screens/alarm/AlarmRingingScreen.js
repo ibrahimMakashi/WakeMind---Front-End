@@ -1,8 +1,10 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {BackHandler, StyleSheet, View} from 'react-native';
 import {AlarmPuzzleScreen} from '../AlarmPuzzleScreen';
+import {AlarmQnaScreen} from './AlarmQnaScreen';
 import {MissionActiveScreen} from './MissionActiveScreen';
 import {MissionCompletionScreen} from './MissionCompletionScreen';
+import {DEFAULT_QNA_QUESTIONS} from '../../data/qnaQuestions';
 import {canSnoozeAlarm, dismissAlarmAfterPuzzle, snoozeAlarm} from '../../services/alarmService';
 import {useTheme} from '../../theme/ThemeProvider';
 
@@ -16,12 +18,14 @@ export function AlarmRingingScreen({
   puzzleImageType,
   difficulty = 'easy',
   sound = 'gentle_morning',
+  questions = DEFAULT_QNA_QUESTIONS,
 }) {
   const {colors} = useTheme();
 
-  // State machine: 'mission' -> 'puzzle' -> 'completion'
+  // State machine: 'mission' -> 'puzzle' -> 'qna' -> 'completion'
   const [stage, setStage] = useState('mission');
   const [puzzleCompleted, setPuzzleCompleted] = useState(false);
+  const [qnaCompleted, setQnaCompleted] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
   const dismissingRef = useRef(false);
   const [snoozeAllowed, setSnoozeAllowed] = useState(initialCanSnooze);
@@ -80,16 +84,25 @@ export function AlarmRingingScreen({
     }
   }, [alarmId, isDismissing, occurrenceId, snoozeAllowed, snoozing]);
 
-  // Stage 2 -> Stage 3: Puzzle Solved (DO NOT dismiss alarm yet!)
+  // Stage 2 -> Stage 3: Puzzle Solved -> Move to Q&A (DO NOT dismiss alarm yet!)
   const handlePuzzleSolved = useCallback(() => {
     if (puzzleCompleted) {
       return;
     }
     setPuzzleCompleted(true);
-    setStage('completion');
+    setStage('qna');
   }, [puzzleCompleted]);
 
-  // Stage 3 -> Dismiss Alarm: Final CTA acknowledged by user
+  // Stage 3 -> Stage 4: Q&A Completed -> Move to Completion (DO NOT dismiss alarm yet!)
+  const handleQnaComplete = useCallback(() => {
+    if (qnaCompleted) {
+      return;
+    }
+    setQnaCompleted(true);
+    setStage('completion');
+  }, [qnaCompleted]);
+
+  // Stage 4 -> Dismiss Alarm: Final CTA acknowledged by user
   const handleFinalDismiss = useCallback(async () => {
     if (dismissingRef.current) {
       return;
@@ -138,6 +151,17 @@ export function AlarmRingingScreen({
           onSolved={handlePuzzleSolved}
           puzzleImageId={puzzleImageId}
           puzzleImageType={puzzleImageType}
+          triggerAtMillis={triggerAtMillis}
+        />
+      )}
+
+      {stage === 'qna' && (
+        <AlarmQnaScreen
+          alarmId={alarmId}
+          label={label}
+          occurrenceId={occurrenceId}
+          onComplete={handleQnaComplete}
+          questions={questions}
           triggerAtMillis={triggerAtMillis}
         />
       )}

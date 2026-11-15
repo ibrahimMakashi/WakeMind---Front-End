@@ -5,6 +5,7 @@ import {AlarmRingingScreen} from './AlarmRingingScreen';
 import {MissionActiveScreen} from './MissionActiveScreen';
 import {MissionCompletionScreen} from './MissionCompletionScreen';
 import {AlarmPuzzleScreen} from '../AlarmPuzzleScreen';
+import {AlarmQnaScreen} from './AlarmQnaScreen';
 import * as alarmService from '../../services/alarmService';
 
 jest.mock('@react-native-vector-icons/material-design-icons', () => 'MaterialDesignIcons');
@@ -141,7 +142,7 @@ describe('AlarmRingingScreen Flow', () => {
     expect(activeRenderer.root.findAllByType(MissionActiveScreen)).toHaveLength(0);
   });
 
-  test('puzzle success transitions to CompletionScreen and DOES NOT dismiss alarm', async () => {
+  test('puzzle success transitions to AlarmQnaScreen and DOES NOT dismiss alarm', async () => {
     await act(async () => {
       activeRenderer = create(<AlarmRingingScreen {...baseProps} />);
     });
@@ -162,7 +163,43 @@ describe('AlarmRingingScreen Flow', () => {
     // CRITICAL REQUIREMENT: Native dismiss must NOT have been called yet!
     expect(alarmService.dismissAlarmAfterPuzzle).not.toHaveBeenCalled();
 
-    // MissionCompletionScreen is now visible
+    // AlarmQnaScreen is now visible
+    const qnaScreen = activeRenderer.root.findByType(AlarmQnaScreen);
+    expect(qnaScreen).toBeDefined();
+    expect(qnaScreen.props.occurrenceId).toBe('occ-test-1_12345678');
+    expect(qnaScreen.props.alarmId).toBe('alarm-test-1');
+
+    // MissionCompletionScreen is NOT yet visible
+    expect(activeRenderer.root.findAllByType(MissionCompletionScreen)).toHaveLength(0);
+  });
+
+  test('Q&A completion transitions to MissionCompletionScreen and DOES NOT dismiss alarm', async () => {
+    await act(async () => {
+      activeRenderer = create(<AlarmRingingScreen {...baseProps} />);
+    });
+
+    // 1. Mission -> Puzzle
+    await act(async () => {
+      activeRenderer.root.findByType(MissionActiveScreen).props.onStartMission();
+    });
+
+    // 2. Puzzle -> Q&A
+    await act(async () => {
+      activeRenderer.root.findByType(AlarmPuzzleScreen).props.onSolved('alarm-test-1', 'occ-test-1_12345678');
+    });
+
+    const qnaScreen = activeRenderer.root.findByType(AlarmQnaScreen);
+    expect(qnaScreen.props.onComplete).toBeDefined();
+
+    // 3. Complete Q&A
+    await act(async () => {
+      qnaScreen.props.onComplete();
+    });
+
+    // Native dismiss must still NOT be called
+    expect(alarmService.dismissAlarmAfterPuzzle).not.toHaveBeenCalled();
+
+    // MissionCompletionScreen is now visible!
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
     expect(completionScreen).toBeDefined();
     expect(completionScreen.props.occurrenceId).toBe('occ-test-1_12345678');
@@ -179,14 +216,19 @@ describe('AlarmRingingScreen Flow', () => {
       activeRenderer.root.findByType(MissionActiveScreen).props.onStartMission();
     });
 
-    // 2. Puzzle -> Completion
+    // 2. Puzzle -> Q&A
     await act(async () => {
       activeRenderer.root.findByType(AlarmPuzzleScreen).props.onSolved('alarm-test-1', 'occ-test-1_12345678');
     });
 
+    // 3. Q&A -> Completion
+    await act(async () => {
+      activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
+    });
+
     expect(alarmService.dismissAlarmAfterPuzzle).not.toHaveBeenCalled();
 
-    // 3. User explicitly acknowledges completion
+    // 4. User explicitly acknowledges completion
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
     await act(async () => {
       completionScreen.props.onDismiss();
@@ -209,6 +251,9 @@ describe('AlarmRingingScreen Flow', () => {
     });
     await act(async () => {
       activeRenderer.root.findByType(AlarmPuzzleScreen).props.onSolved('alarm-test-1', 'occ-test-1_12345678');
+    });
+    await act(async () => {
+      activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
     });
 
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
