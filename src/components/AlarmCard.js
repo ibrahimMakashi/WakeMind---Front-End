@@ -45,9 +45,9 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
     onEdit();
   }
 
-  const timeColor = enabled ? colors.text : colors.disabled || '#5A6882';
+  const timeColor = enabled ? (colors.text || '#FFFFFF') : (colors.disabled || '#5A6882');
   const periodColor = enabled ? colors.accent : '#475569';
-  const labelColor = enabled ? colors.textSoft || '#E2E8F0' : colors.disabled || '#5A6882';
+  const labelColor = enabled ? (colors.textSoft || '#E2E8F0') : (colors.disabled || '#5A6882');
 
   return (
     <SurfaceCard accentTop={enabled} subdued={!enabled} style={styles.card}>
@@ -91,32 +91,42 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
         <View
           style={[
             styles.badge,
-            enabled
-              ? {
-                  backgroundColor: 'rgba(255, 184, 77, 0.08)',
-                  borderColor: 'rgba(255, 184, 77, 0.35)',
-                }
-              : {
-                  backgroundColor: '#151B27',
-                  borderColor: '#202838',
-                },
+            {
+              backgroundColor: enabled
+                ? (colors.badgeActiveBg || 'rgba(255, 184, 77, 0.08)')
+                : (colors.badgeInactiveBg || '#131924'),
+              borderColor: enabled
+                ? (colors.badgeActiveBorder || 'rgba(255, 184, 77, 0.35)')
+                : (colors.badgeInactiveBorder || '#1C2534'),
+            },
           ]}>
           <AppIcon
             name={badgeConfig.icon}
-            color={enabled ? colors.accent : colors.disabled || '#5A6882'}
+            color={enabled ? colors.accent : (colors.disabled || '#5A6882')}
             size={13}
           />
           <Text
             style={[
               styles.badgeText,
-              {color: enabled ? colors.accent : colors.disabled || '#5A6882'},
+              {color: enabled ? colors.accent : (colors.disabled || '#5A6882')},
             ]}>
             {badgeConfig.label}
           </Text>
         </View>
 
-        {/* Weekday Selector Row & Sound Indicator */}
-        <View style={styles.bottomRow}>
+        {/* Inner Weekday Inset Container */}
+        <View
+          style={[
+            styles.insetContainer,
+            {
+              backgroundColor: enabled
+                ? (colors.cardInner || '#0A101C')
+                : (colors.cardInnerInactive || '#070B14'),
+              borderColor: enabled
+                ? (colors.cardInnerBorder || '#1A2436')
+                : (colors.cardInnerBorderInactive || '#121824'),
+            },
+          ]}>
           <View style={styles.weekdaysRow}>
             {WEEKDAY_CONFIG.map(day => {
               const isSelected = repeatDays.includes(day.id);
@@ -127,10 +137,10 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
                     styles.dayBox,
                     enabled
                       ? isSelected
-                        ? [styles.dayBoxSelected, {backgroundColor: colors.accent}]
+                        ? [styles.dayBoxSelected, {backgroundColor: colors.weekdaySelected || colors.accent}]
                         : styles.dayBoxUnselected
                       : isSelected
-                      ? styles.dayBoxDisabledSelected
+                      ? [styles.dayBoxDisabledSelected, {backgroundColor: colors.weekdayInactiveSelected || '#1A2332'}]
                       : styles.dayBoxDisabledUnselected,
                   ]}>
                   <Text
@@ -138,11 +148,11 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
                       styles.dayLabel,
                       enabled
                         ? isSelected
-                          ? {color: colors.accentText || '#070C16', fontWeight: '800'}
-                          : {color: '#344054', fontWeight: '700'}
+                          ? styles.dayLabelActiveSelected
+                          : styles.dayLabelActiveUnselected
                         : isSelected
-                        ? {color: '#64748B', fontWeight: '800'}
-                        : {color: '#232C3C', fontWeight: '700'},
+                        ? styles.dayLabelInactiveSelected
+                        : styles.dayLabelInactiveUnselected,
                     ]}>
                     {day.label}
                   </Text>
@@ -154,9 +164,9 @@ export function AlarmCard({alarm, onToggle, onEdit, toggling}) {
           <View style={styles.soundIndicator}>
             {enabled ? (
               <View style={styles.soundRow}>
-                <AppIcon name="volume-high" color={colors.accent} size={16} />
+                <AppIcon name="volume-high" color={colors.accent} size={15} />
                 <Text style={[styles.soundText, {color: colors.textSoft || '#E2E8F0'}]}>
-                  100%
+                  Loud
                 </Text>
               </View>
             ) : (
@@ -211,11 +221,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-  bottomRow: {
+  insetContainer: {
     alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   weekdaysRow: {
     alignItems: 'center',
@@ -233,14 +247,28 @@ const styles = StyleSheet.create({
   dayBoxUnselected: {
     backgroundColor: 'transparent',
   },
-  dayBoxDisabledSelected: {
-    backgroundColor: '#1E2738',
-  },
+  dayBoxDisabledSelected: {},
   dayBoxDisabledUnselected: {
     backgroundColor: 'transparent',
   },
   dayLabel: {
     fontSize: 11,
+  },
+  dayLabelActiveSelected: {
+    color: '#070C16',
+    fontWeight: '800',
+  },
+  dayLabelActiveUnselected: {
+    color: '#344054',
+    fontWeight: '700',
+  },
+  dayLabelInactiveSelected: {
+    color: '#5A6882',
+    fontWeight: '800',
+  },
+  dayLabelInactiveUnselected: {
+    color: '#232C3C',
+    fontWeight: '700',
   },
   soundIndicator: {
     alignItems: 'center',
@@ -253,7 +281,7 @@ const styles = StyleSheet.create({
   soundText: {
     fontSize: 12,
     fontWeight: '700',
-    marginLeft: 4,
+    marginLeft: 5,
   },
   inactiveText: {
     fontSize: 12,

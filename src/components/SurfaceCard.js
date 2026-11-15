@@ -15,8 +15,12 @@ export function SurfaceCard({children, style, accentTop = false, subdued = false
       style={[
         styles.card,
         {
-          backgroundColor: subdued ? colors.surface : colors.surfaceRaised,
-          borderColor: subdued ? colors.borderSubtle || colors.border : colors.border,
+          backgroundColor: subdued
+            ? colors.cardInactive || colors.surface
+            : colors.card || colors.surfaceRaised,
+          borderColor: subdued
+            ? colors.cardBorderInactive || colors.borderSubtle || colors.border
+            : colors.cardBorder || colors.border,
           borderRadius: cardRadius,
         },
         style,
