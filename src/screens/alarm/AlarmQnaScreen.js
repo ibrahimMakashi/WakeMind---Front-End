@@ -7,13 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   Vibration,
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AppIcon} from '../../components/AppIcon';
-import {QnaCharacterRow} from '../../components/qna/QnaCharacterRow';
+import {QnaSentenceField} from '../../components/qna/QnaSentenceField';
 import {DEFAULT_QNA_QUESTIONS} from '../../data/qnaQuestions';
 import {useTheme} from '../../theme/ThemeProvider';
 
@@ -35,7 +34,6 @@ export function AlarmQnaScreen({
   const [isSuccess, setIsSuccess] = useState(false);
 
   const isAdvancingRef = useRef(false);
-  const inputRef = useRef(null);
   const advanceTimerRef = useRef(null);
 
   const safeQuestions = useMemo(() => {
@@ -52,15 +50,9 @@ export function AlarmQnaScreen({
   const expectedAnswer = currentQuestion?.answer || '';
   const totalQuestions = safeQuestions.length;
 
-  // Auto-focus the input on mount and whenever the question changes
   useEffect(() => {
     isAdvancingRef.current = false;
-    const focusTimer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 120);
-
     return () => {
-      clearTimeout(focusTimer);
       if (advanceTimerRef.current) {
         clearTimeout(advanceTimerRef.current);
       }
@@ -98,7 +90,6 @@ export function AlarmQnaScreen({
             setCurrentQuestionIndex(prev => prev + 1);
             setTypedValue('');
             isAdvancingRef.current = false;
-            inputRef.current?.focus();
           } else {
             // All questions completed!
             isAdvancingRef.current = false;
@@ -258,59 +249,34 @@ export function AlarmQnaScreen({
             </Text>
           </View>
 
-          {/* Typing Area (TypeMaster style) */}
-          <View
-            style={[
-              styles.typingCard,
-              {
-                backgroundColor: colors?.surfaceRaised || '#121927',
-                borderColor: isSuccess ? colors?.success || '#4CD964' : colors?.borderSubtle || '#243046',
-              },
-            ]}>
+          {/* Typing Area (Continuous full-sentence typing) */}
+          <View style={styles.typingSection}>
             <View style={styles.typingHeader}>
-              <Text style={[styles.typingHintText, {color: colors?.textSubtle || '#94A3B8'}]}>
+              <Text
+                style={[
+                  styles.typingHintText,
+                  {
+                    color: isSuccess
+                      ? colors?.success || '#4CD964'
+                      : colors?.textSubtle || '#94A3B8',
+                  },
+                ]}>
                 {isSuccess ? '✓ EXACT MATCH' : 'TYPE THE ANSWER EXACTLY'}
               </Text>
             </View>
 
-            {/* Answer character row & invisible overlay TextInput */}
-            <Pressable
-              accessible={false}
-              onPress={() => inputRef.current?.focus()}
-              style={styles.inputHitArea}>
-              <QnaCharacterRow
-                expectedAnswer={expectedAnswer}
-                isSuccess={isSuccess}
-                typedValue={typedValue}
-              />
-
-              <TextInput
-                ref={inputRef}
-                accessibilityHint="Type the exact answer character by character"
-                accessibilityLabel="Answer input"
-                autoCapitalize="none"
-                autoComplete="off"
-                autoCorrect={false}
-                autoFocus={true}
-                caretHidden={true}
-                clearButtonMode="never"
-                contextMenuHidden={true}
-                disableFullscreenUI={true}
-                keyboardType="default"
-                maxLength={expectedAnswer.length + 4}
-                onChangeText={handleTextChange}
-                returnKeyType="done"
-                spellCheck={false}
-                style={styles.hiddenInput}
-                testID="qna-text-input"
-                value={typedValue}
-              />
-            </Pressable>
+            <QnaSentenceField
+              expectedAnswer={expectedAnswer}
+              isSuccess={isSuccess}
+              onChangeText={handleTextChange}
+              testID="qna-typing-field"
+              typedValue={typedValue}
+            />
 
             <View style={styles.typingFooter}>
               <AppIcon color={colors?.muted || '#687690'} name="information-outline" size={13} />
               <Text style={[styles.typingRuleText, {color: colors?.muted || '#687690'}]}>
-                Case-sensitive • Character-for-character
+                Case-sensitive • Full sentence • Character-for-character
               </Text>
             </View>
           </View>
@@ -488,37 +454,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 30,
   },
-  typingCard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
+  typingSection: {
     marginBottom: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    position: 'relative',
   },
   typingHeader: {
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   typingHintText: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
-  },
-  inputHitArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: '100%',
-  },
-  hiddenInput: {
-    bottom: 0,
-    color: 'transparent',
-    left: 0,
-    opacity: 0.01,
-    position: 'absolute',
-    right: 0,
-    top: 0,
   },
   typingFooter: {
     alignItems: 'center',

@@ -40,7 +40,7 @@ describe('AlarmQnaScreen', () => {
     jest.useRealTimers();
   });
 
-  test('renders first question and progress header initially', () => {
+  test('renders first question and expected sentence in typing field initially', () => {
     const onComplete = jest.fn();
     let renderer;
     act(() => {
@@ -52,10 +52,14 @@ describe('AlarmQnaScreen', () => {
 
     const input = renderer.root.findByProps({testID: 'qna-text-input'});
     expect(input.props.value).toBe('');
+
+    const typingField = renderer.root.findByProps({testID: 'qna-typing-field'});
+    expect(typingField).toBeDefined();
+
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  test('exact case-sensitive answer advances to Question 2', () => {
+  test('exact case-sensitive, punctuation-sensitive answer advances to Question 2', () => {
     const onComplete = jest.fn();
     let renderer;
     act(() => {
@@ -64,21 +68,29 @@ describe('AlarmQnaScreen', () => {
 
     const input = renderer.root.findByProps({testID: 'qna-text-input'});
 
-    // Type incorrect case: "earth" -> should NOT advance
+    // 1. Lowercase initial letter: "we live on planet Earth." -> should NOT advance
     act(() => {
-      input.props.onChangeText('earth');
+      input.props.onChangeText('we live on planet Earth.');
     });
     act(() => {
       jest.advanceTimersByTime(500);
     });
-
-    // Still on question 1
     let questionText = renderer.root.findByProps({testID: 'qna-question-text'});
     expect(questionText.props.children).toBe('What planet do we live on?');
 
-    // Type exact case: "Earth"
+    // 2. Missing final period: "We live on planet Earth" -> should NOT advance
     act(() => {
-      input.props.onChangeText('Earth');
+      input.props.onChangeText('We live on planet Earth');
+    });
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    questionText = renderer.root.findByProps({testID: 'qna-question-text'});
+    expect(questionText.props.children).toBe('What planet do we live on?');
+
+    // 3. Exact full sentence: "We live on planet Earth."
+    act(() => {
+      input.props.onChangeText('We live on planet Earth.');
     });
 
     // Advance past transition timer
@@ -92,19 +104,25 @@ describe('AlarmQnaScreen', () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 
-  test('completing all 5 questions calls onComplete', () => {
+  test('completing all 5 full-sentence questions calls onComplete', () => {
     const onComplete = jest.fn();
     let renderer;
     act(() => {
       renderer = create(<AlarmQnaScreen onComplete={onComplete} />);
     });
 
-    const answers = ['Earth', 'Seven', 'Hot', 'Blue', 'Ten'];
+    const fullSentenceAnswers = [
+      'We live on planet Earth.',
+      'There are seven days in a week.',
+      'The opposite of cold is hot.',
+      'The sky is blue on a clear day.',
+      'The number ten comes after nine.',
+    ];
 
-    answers.forEach((ans, index) => {
+    fullSentenceAnswers.forEach(sentence => {
       const input = renderer.root.findByProps({testID: 'qna-text-input'});
       act(() => {
-        input.props.onChangeText(ans);
+        input.props.onChangeText(sentence);
       });
       act(() => {
         jest.advanceTimersByTime(400);
@@ -145,18 +163,18 @@ describe('AlarmQnaScreen', () => {
 
     const input = renderer.root.findByProps({testID: 'qna-text-input'});
 
-    // Enter correct answer then immediate repeated onChangeText calls
+    // Enter correct answer with rapid duplicate events
     act(() => {
-      input.props.onChangeText('Earth');
-      input.props.onChangeText('Earth');
-      input.props.onChangeText('Earth');
+      input.props.onChangeText('We live on planet Earth.');
+      input.props.onChangeText('We live on planet Earth.');
+      input.props.onChangeText('We live on planet Earth.');
     });
 
     act(() => {
       jest.advanceTimersByTime(400);
     });
 
-    // Should only have advanced to question 2 (index 1), not skipped to question 3 or 4
+    // Should only have advanced to question 2 (index 1), not skipped
     const questionText = renderer.root.findByProps({testID: 'qna-question-text'});
     expect(questionText.props.children).toBe('How many days are there in a week?');
   });
