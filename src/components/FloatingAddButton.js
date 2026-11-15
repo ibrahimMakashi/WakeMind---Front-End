@@ -1,11 +1,10 @@
 import {Pressable, StyleSheet, View} from 'react-native';
-import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 import {AppIcon} from './AppIcon';
 
-export const FAB_SIZE = 56;
+export const FAB_SIZE = 64;
 // The alarms scene ends at the tab bar. The reference leaves a gap above it.
-export const FAB_BOTTOM_GAP = spacing.md;
+export const FAB_BOTTOM_GAP = 16;
 
 export function FloatingAddButton({onPress, disabled}) {
   const {colors, radius} = useTheme();
@@ -23,13 +22,13 @@ export function FloatingAddButton({onPress, disabled}) {
           styles.button,
           {
             backgroundColor: colors.accent,
-            borderRadius: radius.fab,
+            borderRadius: radius.fab || 20,
             shadowColor: colors.accent,
           },
           pressed && !disabled && styles.pressed,
           disabled && styles.dimmed,
         ]}>
-        <AppIcon name="plus" color={colors.accentText} size={28} />
+        <AppIcon name="plus" color={colors.accentText || '#070C16'} size={32} />
       </Pressable>
     </View>
   );
@@ -46,17 +45,17 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: 'center',
-    elevation: 8,
+    elevation: 10,
     height: FAB_SIZE,
     justifyContent: 'center',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
     width: FAB_SIZE,
   },
   pressed: {
     opacity: 0.9,
-    transform: [{scale: 0.97}],
+    transform: [{scale: 0.96}],
   },
   dimmed: {
     opacity: 0.45,

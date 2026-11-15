@@ -18,26 +18,20 @@ import {usePrefersReducedMotion} from '../theme/usePrefersReducedMotion';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function AlarmsTabIcon({color, size, focused}) {
-  return <AppIcon name={focused ? 'alarm' : 'alarm'} color={color} size={size} />;
+function AlarmsTabIcon({color, size}) {
+  return <AppIcon name="alarm" color={color} size={size || 22} />;
 }
 
 function VisionTabIcon({color, size}) {
-  return <AppIcon name="star-four-points-outline" color={color} size={size} />;
+  return <AppIcon name="star-four-points-outline" color={color} size={size || 22} />;
 }
 
 function JournalTabIcon({color, size}) {
-  return <AppIcon name="book-open-variant" color={color} size={size} />;
+  return <AppIcon name="book-open-variant" color={color} size={size || 22} />;
 }
 
-function ProfileTabIcon({color, size, focused}) {
-  return (
-    <AppIcon
-      name={focused ? 'account-circle' : 'account-circle-outline'}
-      color={color}
-      size={size}
-    />
-  );
+function ProfileTabIcon({color, size}) {
+  return <AppIcon name="account-circle-outline" color={color} size={size || 22} />;
 }
 
 export function RootNavigator() {
@@ -105,13 +99,13 @@ function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: colors.tabInactive || colors.disabled || '#5A6882',
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.tabBar || colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          height: 64,
+          borderTopColor: colors.tabBarBorder || colors.borderSubtle || '#151E2D',
+          borderTopWidth: 1,
+          height: 68,
           paddingBottom: 8,
           paddingTop: 8,
         },

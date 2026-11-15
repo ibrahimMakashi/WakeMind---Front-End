@@ -7,6 +7,8 @@ import {useTheme} from '../theme/ThemeProvider';
 // its children cannot be dropped when an alarm is toggled.
 export function SurfaceCard({children, style, accentTop = false, subdued = false}) {
   const {colors, radius} = useTheme();
+  const cardRadius = radius?.card || radius?.lg || 20;
+
   return (
     <View
       collapsable={false}
@@ -14,12 +16,23 @@ export function SurfaceCard({children, style, accentTop = false, subdued = false
         styles.card,
         {
           backgroundColor: subdued ? colors.surface : colors.surfaceRaised,
-          borderColor: colors.border,
-          borderRadius: radius.md,
-          borderTopColor: accentTop ? colors.accent : colors.border,
+          borderColor: subdued ? colors.borderSubtle || colors.border : colors.border,
+          borderRadius: cardRadius,
         },
         style,
       ]}>
+      {accentTop ? (
+        <View
+          style={[
+            styles.accentBar,
+            {
+              backgroundColor: colors.accent,
+              borderTopLeftRadius: cardRadius,
+              borderTopRightRadius: cardRadius,
+            },
+          ]}
+        />
+      ) : null}
       {children}
     </View>
   );
@@ -27,8 +40,16 @@ export function SurfaceCard({children, style, accentTop = false, subdued = false
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderTopWidth: 2,
+    borderWidth: 1,
+    overflow: 'hidden',
     padding: spacing.md,
+    position: 'relative',
+  },
+  accentBar: {
+    height: 3,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
 });

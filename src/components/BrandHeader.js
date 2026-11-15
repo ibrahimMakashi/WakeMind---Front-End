@@ -14,9 +14,13 @@ export function BrandHeader({subtitle = 'ALARMS'}) {
         <View
           style={[
             styles.iconTile,
-            {backgroundColor: colors.surfaceDeep, borderRadius: radius.icon},
+            {
+              backgroundColor: colors.surfaceElevated || colors.surfaceDeep,
+              borderColor: colors.borderSubtle || colors.border,
+              borderRadius: radius.icon,
+            },
           ]}>
-          <AppIcon name="lightning-bolt" color={colors.accent} size={20} />
+          <AppIcon name="lightning-bolt" color={colors.accent} size={22} />
         </View>
         <View>
           <Text style={[typography.brandTitle, {color: colors.text}]}>
@@ -32,7 +36,7 @@ export function BrandHeader({subtitle = 'ALARMS'}) {
         accessibilityLabel="Open profile"
         onPress={() => navigation.navigate('Profile')}
         style={[styles.profile, {backgroundColor: colors.accent}]}>
-        <AppIcon name="account" color={colors.accentText} size={22} />
+        <AppIcon name="account" color={colors.accentText} size={24} />
       </Pressable>
     </View>
   );
@@ -43,8 +47,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   brand: {
     alignItems: 'center',
@@ -52,16 +56,17 @@ const styles = StyleSheet.create({
   },
   iconTile: {
     alignItems: 'center',
-    height: 40,
+    borderWidth: 1,
+    height: 42,
     justifyContent: 'center',
-    marginRight: spacing.sm,
-    width: 40,
+    marginRight: 12,
+    width: 42,
   },
   profile: {
     alignItems: 'center',
-    borderRadius: 22,
-    height: 44,
+    borderRadius: 21,
+    height: 42,
     justifyContent: 'center',
-    width: 44,
+    width: 42,
   },
 });

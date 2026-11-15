@@ -2,12 +2,14 @@ import {StyleSheet, Text, View} from 'react-native';
 import {spacing} from '../constants/theme';
 import {useTheme} from '../theme/ThemeProvider';
 
-export function SectionHeader({label, meta, style}) {
+export function SectionHeader({label, meta, right, style}) {
   const {colors, typography} = useTheme();
   return (
     <View style={[styles.row, style]}>
       <Text style={[typography.sectionLabel, {color: colors.muted}]}>{label}</Text>
-      {meta ? (
+      {right ? (
+        right
+      ) : meta ? (
         <Text style={[typography.caption, styles.meta, {color: colors.accent}]}>
           {meta}
         </Text>

@@ -7,7 +7,7 @@ export const typography = {
   },
   brandSubtitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
@@ -29,14 +29,14 @@ export const typography = {
   },
   statValue: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
   listTime: {
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 34,
+    fontWeight: '800',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   listPeriod: {
     fontSize: 14,
@@ -44,10 +44,10 @@ export const typography = {
     letterSpacing: 0.5,
   },
   missionTime: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1.5,
+    letterSpacing: -1,
   },
   editorTimeBlock: {
     fontSize: 40,
@@ -59,16 +59,16 @@ export const typography = {
     fontWeight: '400',
   },
   bodyStrong: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
   },
   caption: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   tabLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },

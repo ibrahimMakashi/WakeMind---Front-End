@@ -11,16 +11,38 @@ export function NextMissionCard({alarm, now}) {
 
   if (!alarm) {
     return (
-      <SurfaceCard>
+      <SurfaceCard style={styles.card}>
         <Text style={[typography.cardHeading, {color: colors.accent}]}>
           NEXT MISSION PROTOCOL
         </Text>
-        <Text style={[typography.bodyStrong, {color: colors.text, marginTop: spacing.sm}]}>
-          No upcoming alarm
-        </Text>
-        <Text style={[typography.caption, {color: colors.muted, marginTop: spacing.xs}]}>
-          Enable an alarm to see your next mission time here.
-        </Text>
+        <View style={styles.body}>
+          <View style={styles.timeBlock}>
+            <View style={styles.timeRow}>
+              <Text style={[typography.missionTime, {color: colors.muted}]}>
+                --:--
+              </Text>
+            </View>
+            <View style={styles.countdownRow}>
+              <AppIcon name="clock-outline" color={colors.muted} size={14} />
+              <Text style={[typography.caption, {color: colors.muted}]}>
+                No active alarm scheduled
+              </Text>
+            </View>
+          </View>
+          <View
+            style={[
+              styles.status,
+              {
+                backgroundColor: colors.surfaceElevated || colors.surfaceDeep,
+                borderColor: colors.borderSubtle || colors.border,
+              },
+            ]}>
+            <AppIcon name="clock-outline" color={colors.muted} size={22} />
+            <Text style={[styles.statusText, {color: colors.muted}]}>
+              STANDBY
+            </Text>
+          </View>
+        </View>
       </SurfaceCard>
     );
   }
@@ -29,7 +51,7 @@ export function NextMissionCard({alarm, now}) {
   const countdown = formatArmingCountdown(alarm.triggerAtMillis, now);
 
   return (
-    <SurfaceCard accentTop>
+    <SurfaceCard style={styles.card}>
       <Text style={[typography.cardHeading, {color: colors.accent}]}>
         NEXT MISSION PROTOCOL
       </Text>
@@ -44,14 +66,30 @@ export function NextMissionCard({alarm, now}) {
             </Text>
           </View>
           <View style={styles.countdownRow}>
-            <AppIcon name="clock-outline" color={colors.muted} size={14} />
-            <Text style={[typography.caption, {color: colors.textSoft}]}>{countdown}</Text>
+            <AppIcon
+              name="clock-outline"
+              color={colors.accentBlue || '#38BDF8'}
+              size={14}
+            />
+            <Text style={[typography.caption, {color: colors.muted}]}>
+              Arming in{' '}
+              <Text style={{color: colors.text, fontWeight: '700'}}>
+                {countdown.replace(/^Arming in\s*/i, '')}
+              </Text>
+            </Text>
           </View>
         </View>
-        <View style={[styles.status, {backgroundColor: colors.surfaceDeep}]}>
-          <AppIcon name="calendar-check" color={colors.accent} size={18} />
-          <Text style={[typography.caption, styles.statusText, {color: colors.accent}]}>
-            Scheduled
+        <View
+          style={[
+            styles.status,
+            {
+              backgroundColor: colors.surfaceElevated || colors.surfaceDeep,
+              borderColor: colors.borderSubtle || colors.border,
+            },
+          ]}>
+          <AppIcon name="medal" color={colors.accent} size={22} />
+          <Text style={[styles.statusText, {color: colors.textSubtle || '#94A3B8'}]}>
+            LOCKED
           </Text>
         </View>
       </View>
@@ -60,11 +98,14 @@ export function NextMissionCard({alarm, now}) {
 }
 
 const styles = StyleSheet.create({
+  card: {
+    padding: 18,
+  },
   body: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    marginTop: 8,
   },
   timeBlock: {
     flex: 1,
@@ -73,28 +114,30 @@ const styles = StyleSheet.create({
   timeRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    flexWrap: 'wrap',
   },
   period: {
-    marginBottom: 8,
-    marginLeft: spacing.sm,
+    marginBottom: 5,
+    marginLeft: 6,
   },
   countdownRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
+    gap: 6,
+    marginTop: 6,
   },
   status: {
     alignItems: 'center',
-    borderRadius: 12,
-    minWidth: 72,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 64,
+    justifyContent: 'center',
+    width: 64,
   },
   statusText: {
-    fontWeight: '700',
-    marginTop: 4,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 3,
     textTransform: 'uppercase',
   },
 });
