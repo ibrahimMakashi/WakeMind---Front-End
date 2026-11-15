@@ -89,22 +89,28 @@ internal object AlarmScheduler {
       throw IllegalArgumentException("Snooze trigger time is in the past.")
     }
     cancelSnooze(context, record.alarmId, record.occurrenceId)
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+
+    val alarmManager =
+        alarmManagerProvider(context)
+            ?: throw IllegalStateException("AlarmManager unavailable")
+
+    val requestCode = snoozeRequestCode(record.alarmId, record.occurrenceId)
+    val fireIntent = snoozeFireIntent(context, record.alarmId, record.occurrenceId)
+
     val operation =
-        PendingIntent.getBroadcast(
+        pendingIntentFactory(
             context,
-            snoozeRequestCode(record.alarmId, record.occurrenceId),
-            snoozeFireIntent(context, record.alarmId, record.occurrenceId),
+            requestCode,
+            fireIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        ) ?: throw IllegalStateException("Failed to create snooze PendingIntent for ${record.occurrenceId}")
+
     val show = showPendingIntent(context)
     try {
-      if (alarmManager != null && operation != null && show != null) {
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(record.triggerAtMillis, show),
-            operation,
-        )
-      }
+      alarmManager.setAlarmClock(
+          AlarmManager.AlarmClockInfo(record.triggerAtMillis, show),
+          operation,
+      )
     } catch (error: SecurityException) {
       Log.e(ALARM_LOG_TAG, "setAlarmClock rejected snooze for ${record.alarmId} (${record.occurrenceId})", error)
       val latestAccess = currentAccess(context)
@@ -113,16 +119,28 @@ internal object AlarmScheduler {
       }
       throw IllegalStateException("Android rejected the exact snooze alarm.", error)
     }
+
+    // Verify scheduled PendingIntent exists using the exact occurrence identity
+    val verified =
+        pendingIntentResolver(
+            context,
+            requestCode,
+            fireIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: throw IllegalStateException("Scheduled snooze PendingIntent could not be verified for ${record.occurrenceId}")
+
     Log.i(ALARM_LOG_TAG, "Scheduled snooze for ${record.alarmId} (${record.occurrenceId}) at ${record.triggerAtMillis}")
   }
 
   fun cancelSnooze(context: Context, alarmId: String, occurrenceId: String) {
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+    val alarmManager = alarmManagerProvider(context)
+    val requestCode = snoozeRequestCode(alarmId, occurrenceId)
+    val fireIntent = snoozeFireIntent(context, alarmId, occurrenceId)
     val pending =
-        PendingIntent.getBroadcast(
+        pendingIntentResolver(
             context,
-            snoozeRequestCode(alarmId, occurrenceId),
-            snoozeFireIntent(context, alarmId, occurrenceId),
+            requestCode,
+            fireIntent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
     if (pending != null) {
@@ -130,6 +148,24 @@ internal object AlarmScheduler {
       pending.cancel()
       Log.i(ALARM_LOG_TAG, "Cancelled snooze for $alarmId ($occurrenceId)")
     }
+  }
+
+  internal var alarmManagerProvider: (Context) -> AlarmManager? = { context ->
+    context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+  }
+
+  internal var pendingIntentFactory: (Context, Int, Intent, Int) -> PendingIntent? = { context, req, intent, flags ->
+    PendingIntent.getBroadcast(context, req, intent, flags)
+  }
+
+  internal var pendingIntentResolver: (Context, Int, Intent, Int) -> PendingIntent? = { context, req, intent, flags ->
+    PendingIntent.getBroadcast(context, req, intent, flags)
+  }
+
+  internal fun resetProviders() {
+    alarmManagerProvider = { context -> context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager }
+    pendingIntentFactory = { context, req, intent, flags -> PendingIntent.getBroadcast(context, req, intent, flags) }
+    pendingIntentResolver = { context, req, intent, flags -> PendingIntent.getBroadcast(context, req, intent, flags) }
   }
 
   fun snoozeRequestCode(alarmId: String, occurrenceId: String): Int {

@@ -152,28 +152,17 @@ class AlarmModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun dismissAlarmAfterPuzzle(alarmId: String, promise: Promise) {
-    try {
-      if (alarmId.isBlank()) {
-        throw IllegalArgumentException("Alarm ID cannot be empty.")
-      }
-      val dismissed = AlarmRingtoneService.dismissAfterPuzzle(reactApplicationContext, alarmId)
-      if (dismissed) {
-        RingingActivity.finishActive()
-      }
-      promise.resolve(dismissed)
-    } catch (error: IllegalArgumentException) {
-      promise.reject("ALARM_VALIDATION", error.message, error)
-    } catch (error: Exception) {
-      Log.e(ALARM_LOG_TAG, "Could not dismiss alarm $alarmId.", error)
-      promise.reject("ALARM_DISMISS_FAILED", error.message, error)
-    }
+    promise.reject(
+        "OCCURRENCE_REQUIRED",
+        "Legacy dismissal without occurrenceId is disabled. Use dismissAlarmOccurrenceAfterPuzzle(alarmId, occurrenceId).",
+    )
   }
 
   @ReactMethod
   fun dismissAlarmOccurrenceAfterPuzzle(alarmId: String, occurrenceId: String, promise: Promise) {
     try {
-      if (alarmId.isBlank()) {
-        throw IllegalArgumentException("Alarm ID cannot be empty.")
+      if (alarmId.isBlank() || occurrenceId.isBlank()) {
+        throw IllegalArgumentException("Alarm ID and Occurrence ID cannot be empty.")
       }
       val dismissed = AlarmRingtoneService.dismissAfterPuzzle(reactApplicationContext, alarmId, occurrenceId)
       if (dismissed) {

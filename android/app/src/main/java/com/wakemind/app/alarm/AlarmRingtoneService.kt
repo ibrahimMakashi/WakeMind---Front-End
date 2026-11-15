@@ -312,31 +312,32 @@ class AlarmRingtoneService : Service() {
       context.startService(intent)
     }
 
-    internal fun dismissAfterPuzzle(context: Context, alarmId: String, occurrenceId: String? = null): Boolean {
+    internal fun dismissAfterPuzzle(context: Context, alarmId: String, occurrenceId: String): Boolean {
       if (alarmId.isBlank()) {
         throw IllegalArgumentException("Alarm ID cannot be blank.")
       }
+      if (occurrenceId.isBlank()) {
+        throw IllegalArgumentException("Occurrence ID cannot be blank.")
+      }
       val activeId = currentRingingAlarmId
       val activeOccId = currentOccurrenceId
-      if (!isRinging || activeId == null) {
+      if (!isRinging || activeId == null || activeOccId == null) {
         return false
       }
       if (activeId != alarmId) {
         Log.w(ALARM_LOG_TAG, "Dismissal rejected: requested $alarmId but ringing $activeId")
         return false
       }
-      if (!occurrenceId.isNullOrBlank() && activeOccId != null && activeOccId != occurrenceId) {
+      if (activeOccId != occurrenceId) {
         Log.w(ALARM_LOG_TAG, "Dismissal rejected: requested occurrence $occurrenceId but ringing $activeOccId")
         return false
       }
 
-      // Occurrence-specific cleanup! (Section 14 & 26)
-      if (activeOccId != null) {
-        try {
-          SnoozeStore(context).clear(activeOccId)
-        } catch (e: Exception) {
-          Log.e(ALARM_LOG_TAG, "Failed to clear snooze store for occurrence $activeOccId", e)
-        }
+      // Occurrence-specific cleanup!
+      try {
+        SnoozeStore(context).clear(occurrenceId)
+      } catch (e: Exception) {
+        Log.e(ALARM_LOG_TAG, "Failed to clear snooze store for occurrence $occurrenceId", e)
       }
       stop(context)
       return true

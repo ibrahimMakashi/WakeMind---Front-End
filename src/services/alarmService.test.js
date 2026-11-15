@@ -24,7 +24,7 @@ describe('alarmService', () => {
       openExactAlarmSettings: jest.fn().mockResolvedValue(null),
       openFullScreenIntentSettings: jest.fn().mockResolvedValue(null),
       stopRinging: jest.fn().mockResolvedValue(null),
-      dismissAlarmAfterPuzzle: jest.fn().mockResolvedValue(true),
+      dismissAlarmOccurrenceAfterPuzzle: jest.fn().mockResolvedValue(true),
       getActiveRingingAlarm: jest.fn().mockResolvedValue({id: 'test-1'}),
       playAudioPreview: jest.fn().mockResolvedValue(true),
       stopAudioPreview: jest.fn().mockResolvedValue(true),
@@ -37,10 +37,22 @@ describe('alarmService', () => {
     Platform.OS = originalPlatform;
   });
 
-  test('delegates dismissAlarmAfterPuzzle to native AlarmModule', async () => {
-    const result = await dismissAlarmAfterPuzzle('alarm-123');
-    expect(NativeModules.AlarmModule.dismissAlarmAfterPuzzle).toHaveBeenCalledWith('alarm-123');
+  test('delegates dismissAlarmAfterPuzzle to native AlarmModule with occurrenceId', async () => {
+    const result = await dismissAlarmAfterPuzzle('alarm-123', 'occ-456');
+    expect(NativeModules.AlarmModule.dismissAlarmOccurrenceAfterPuzzle).toHaveBeenCalledWith(
+      'alarm-123',
+      'occ-456',
+    );
     expect(result).toBe(true);
+  });
+
+  test('rejects dismissAlarmAfterPuzzle when occurrenceId or alarmId is missing', () => {
+    expect(() => dismissAlarmAfterPuzzle('alarm-123', '')).toThrow(
+      'Both alarmId and occurrenceId are strictly required to dismiss an alarm.',
+    );
+    expect(() => dismissAlarmAfterPuzzle('', 'occ-456')).toThrow(
+      'Both alarmId and occurrenceId are strictly required to dismiss an alarm.',
+    );
   });
 
   test('delegates stopRinging to native AlarmModule', async () => {
@@ -74,7 +86,7 @@ describe('alarmService', () => {
 
   test('throws on non-Android platform', () => {
     Platform.OS = 'ios';
-    expect(() => dismissAlarmAfterPuzzle('123')).toThrow(
+    expect(() => dismissAlarmAfterPuzzle('123', 'occ-123')).toThrow(
       'The alarm engine is only implemented on Android.',
     );
   });

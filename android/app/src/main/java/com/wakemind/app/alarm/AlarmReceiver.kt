@@ -35,7 +35,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
     if (alarm == null) {
       if (isSnooze) {
-        Log.i(ALARM_LOG_TAG, "Snooze fired for deleted alarm $alarmId; cleaning up snooze store and aborting.")
+        Log.w(ALARM_LOG_TAG, "Snooze fire rejected: alarm $alarmId does not exist in store.")
         if (!occurrenceId.isNullOrBlank()) {
           SnoozeStore(context).clear(occurrenceId)
         }
@@ -46,23 +46,70 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     if (isSnooze) {
-      // 1. Snooze fire: reuse original occurrenceId and NEVER touch weekly recurrence
-      val finalOccurrenceId =
-          occurrenceId
-              ?: SnoozeStore(context).getPendingForAlarm(alarmId)?.occurrenceId
-              ?: "${alarmId}_${System.currentTimeMillis()}"
+      // Snooze fire validation: strictly require valid alarmId, occurrenceId, and valid pending record
+      if (occurrenceId.isNullOrBlank()) {
+        Log.w(ALARM_LOG_TAG, "Snooze fire rejected: missing occurrenceId for alarm $alarmId.")
+        return
+      }
 
-      try {
-        SnoozeStore(context).markFired(finalOccurrenceId)
-      } catch (e: Exception) {
-        Log.e(ALARM_LOG_TAG, "Failed to mark snooze record fired for $finalOccurrenceId", e)
+      val snoozeStore = SnoozeStore(context)
+      val record = snoozeStore.get(occurrenceId)
+      if (record == null) {
+        Log.w(ALARM_LOG_TAG, "Snooze fire rejected: no SnoozeRecord found for occurrence $occurrenceId.")
+        return
+      }
+
+      if (record.alarmId != alarmId) {
+        Log.w(
+            ALARM_LOG_TAG,
+            "Snooze fire rejected: alarmId mismatch (expected ${record.alarmId}, got $alarmId for occurrence $occurrenceId).",
+        )
+        return
+      }
+
+      if (record.occurrenceId != occurrenceId) {
+        Log.w(ALARM_LOG_TAG, "Snooze fire rejected: occurrenceId mismatch for occurrence $occurrenceId.")
+        return
+      }
+
+      if (!record.isPending) {
+        Log.w(ALARM_LOG_TAG, "Snooze fire rejected: snooze for occurrence $occurrenceId is already consumed/expired.")
+        return
+      }
+
+      if (record.snoozeCount != 1) {
+        Log.w(
+            ALARM_LOG_TAG,
+            "Snooze fire rejected: invalid snoozeCount ${record.snoozeCount} for occurrence $occurrenceId.",
+        )
+        return
+      }
+
+      val now = System.currentTimeMillis()
+      // Reject if trigger time is far in the future (> 60 seconds)
+      if (record.triggerAtMillis > now + 60_000L) {
+        Log.w(
+            ALARM_LOG_TAG,
+            "Snooze fire rejected: trigger time is in the future (${record.triggerAtMillis} vs now $now).",
+        )
+        return
+      }
+
+      // Atomically consume pending record to prevent duplicate fires from ringing again
+      val consumed = snoozeStore.consumePending(alarmId, occurrenceId)
+      if (consumed == null) {
+        Log.w(
+            ALARM_LOG_TAG,
+            "Snooze fire rejected: duplicate or concurrent delivery already consumed occurrence $occurrenceId.",
+        )
+        return
       }
 
       try {
-        AlarmRingtoneService.start(context, alarm, finalOccurrenceId, snoozeCount = 1)
-        Log.i(ALARM_LOG_TAG, "Snooze alarm $alarmId ($finalOccurrenceId) started ringing with snoozeCount=1.")
+        AlarmRingtoneService.start(context, alarm, occurrenceId, snoozeCount = 1)
+        Log.i(ALARM_LOG_TAG, "Snooze alarm $alarmId ($occurrenceId) successfully started ringing with snoozeCount=1.")
       } catch (ringError: Exception) {
-        Log.e(ALARM_LOG_TAG, "Failed to start ringtone service for snoozed alarm $alarmId.", ringError)
+        Log.e(ALARM_LOG_TAG, "Failed to start ringtone service for snoozed alarm $alarmId ($occurrenceId).", ringError)
       }
       return
     }

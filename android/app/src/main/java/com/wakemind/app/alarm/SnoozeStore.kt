@@ -45,6 +45,30 @@ internal class SnoozeStore(context: Context) {
   }
 
   /**
+   * Atomically validates and consumes a pending snooze record.
+   * Returns the valid SnoozeRecord if successful, or null if invalid, already consumed, or mismatched.
+   */
+  fun consumePending(alarmId: String, occurrenceId: String): SnoozeRecord? =
+      synchronized(lock) {
+        val record = get(occurrenceId) ?: return null
+        if (record.alarmId != alarmId) {
+          return null
+        }
+        if (record.occurrenceId != occurrenceId) {
+          return null
+        }
+        if (!record.isPending) {
+          return null
+        }
+        if (record.snoozeCount != 1) {
+          return null
+        }
+        val consumed = record.copy(isPending = false)
+        save(consumed)
+        return consumed
+      }
+
+  /**
    * Occurrence-specific cleanup: removes only the snooze record for the specified occurrenceId.
    * This is used upon puzzle completion for that specific occurrence.
    */

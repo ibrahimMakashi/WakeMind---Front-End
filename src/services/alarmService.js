@@ -45,11 +45,10 @@ export function stopRinging() {
 }
 
 export function dismissAlarmAfterPuzzle(alarmId, occurrenceId) {
-  const mod = requireAndroidModule();
-  if (occurrenceId && typeof mod.dismissAlarmOccurrenceAfterPuzzle === 'function') {
-    return mod.dismissAlarmOccurrenceAfterPuzzle(alarmId, occurrenceId);
+  if (!alarmId || !occurrenceId) {
+    throw new Error('Both alarmId and occurrenceId are strictly required to dismiss an alarm.');
   }
-  return mod.dismissAlarmAfterPuzzle(alarmId);
+  return requireAndroidModule().dismissAlarmOccurrenceAfterPuzzle(alarmId, occurrenceId);
 }
 
 export function canSnoozeAlarm(alarmId, occurrenceId) {
