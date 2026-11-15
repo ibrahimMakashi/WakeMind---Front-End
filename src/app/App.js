@@ -3,7 +3,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {AlarmsProvider} from '../alarms/AlarmsProvider';
 import {boot} from '../constants/theme';
 import {RootNavigator} from '../navigation/RootNavigator';
-import {AlarmPuzzleScreen} from '../screens/AlarmPuzzleScreen';
+import {AlarmRingingScreen} from '../screens/alarm/AlarmRingingScreen';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 
 export default function App(props) {
@@ -47,7 +47,7 @@ function AlarmRoot(props) {
         barStyle={theme.statusBarStyle}
         backgroundColor={theme.colors.background}
       />
-      <AlarmPuzzleScreen {...props} />
+      <AlarmRingingScreen {...props} />
     </View>
   );
 }

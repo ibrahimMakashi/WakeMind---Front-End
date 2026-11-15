@@ -42,6 +42,7 @@ internal object AlarmNotifications {
       difficulty: String? = null,
       occurrenceId: String = "${alarmId}_${triggerAtMillis}",
       canSnooze: Boolean = true,
+      sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
   ): Notification {
     val activityIntent =
         ringingIntent(
@@ -55,6 +56,7 @@ internal object AlarmNotifications {
             difficulty,
             occurrenceId,
             canSnooze,
+            sound,
         )
     val contentPending =
         PendingIntent.getActivity(
@@ -118,6 +120,7 @@ internal object AlarmNotifications {
       difficulty: String? = null,
       occurrenceId: String? = null,
       canSnooze: Boolean = true,
+      sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
   ): Intent {
     val storeAlarm =
         if (puzzleImageId.isNullOrBlank() || difficulty.isNullOrBlank()) AlarmStore(context).get(alarmId)
@@ -125,6 +128,7 @@ internal object AlarmNotifications {
     val finalImageId = puzzleImageId ?: storeAlarm?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
     val finalImageType = puzzleImageType ?: storeAlarm?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
     val finalDifficulty = difficulty ?: storeAlarm?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
+    val finalSound = if (sound != AlarmDefaults.DEFAULT_ALARM_SOUND_ID) sound else (storeAlarm?.sound ?: sound)
     val finalOccId = occurrenceId ?: "${alarmId}_${triggerAtMillis}"
 
     return Intent(context, RingingActivity::class.java).apply {
@@ -138,6 +142,7 @@ internal object AlarmNotifications {
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID, finalImageId)
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, finalImageType)
       putExtra(AlarmIntents.EXTRA_DIFFICULTY, finalDifficulty)
+      putExtra(AlarmIntents.EXTRA_SOUND, finalSound)
     }
   }
 

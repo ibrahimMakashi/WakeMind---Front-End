@@ -56,6 +56,9 @@ class RingingActivity : ReactActivity() {
           val difficulty =
               intent?.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
                   ?: AlarmDefaults.DIFFICULTY_EASY
+          val sound =
+              intent?.getStringExtra(AlarmIntents.EXTRA_SOUND)
+                  ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
 
           val occurrenceId =
               intent?.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
@@ -77,6 +80,7 @@ class RingingActivity : ReactActivity() {
             putString("puzzleImageId", puzzleImageId)
             putString("puzzleImageType", puzzleImageType)
             putString("difficulty", difficulty)
+            putString("sound", sound)
           }
         }
       }

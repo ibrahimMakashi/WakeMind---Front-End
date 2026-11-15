@@ -60,6 +60,7 @@ class AlarmRingtoneService : Service() {
         difficulty,
         occurrenceId,
         canSnooze,
+        sound,
     )
     if (isRinging && currentAlarmId == alarmId && currentOccurrenceId == occurrenceId) {
       return START_REDELIVER_INTENT
@@ -94,6 +95,7 @@ class AlarmRingtoneService : Service() {
       difficulty: String? = null,
       occurrenceId: String = "${alarmId}_${triggerAtMillis}",
       canSnooze: Boolean = true,
+      sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
   ) {
     AlarmNotifications.ensureChannel(this)
     val notification =
@@ -108,6 +110,7 @@ class AlarmRingtoneService : Service() {
             difficulty,
             occurrenceId,
             canSnooze,
+            sound,
         )
     val type =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

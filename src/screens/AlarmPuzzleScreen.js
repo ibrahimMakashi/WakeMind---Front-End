@@ -59,6 +59,7 @@ export function AlarmPuzzleScreen({
   puzzleImageId = DEFAULT_PUZZLE_IMAGE_ID,
   puzzleImageType = 'bundled',
   difficulty = 'easy',
+  onSolved,
 }) {
   const insets = useSafeAreaInsets();
   const {colors, typography} = useTheme();
@@ -274,6 +275,17 @@ export function AlarmPuzzleScreen({
     dismissingRef.current = true;
 
     try {
+      if (typeof onSolved === 'function') {
+        markSolved();
+        setIsDismissed(true);
+        try {
+          Vibration.vibrate(COMPLETION_HAPTIC_MS);
+        } catch {}
+        AccessibilityInfo.announceForAccessibility('Alarm puzzle solved. Vision unlocked.');
+        onSolved(alarmId, occurrenceId);
+        return;
+      }
+
       let dismissed = false;
       if (alarmId) {
         dismissed = await dismissAlarmAfterPuzzle(alarmId, occurrenceId);
@@ -318,7 +330,7 @@ export function AlarmPuzzleScreen({
       dismissingRef.current = false;
       setPhaseSafe('idle');
     }
-  }, [alarmId, completionGlow, markSolved, occurrenceId, reducedMotion, setPhaseSafe, unlockBannerScale]);
+  }, [alarmId, completionGlow, markSolved, occurrenceId, onSolved, reducedMotion, setPhaseSafe, unlockBannerScale]);
 
   const finishSwapAnimation = useCallback(async () => {
     snapToBoard(gameStateRef.current, layout);
@@ -688,6 +700,7 @@ export function AlarmPuzzleScreen({
                 accessibilityLabel="Stop alarm by solving puzzle"
                 accessibilityRole="button"
                 onPress={handleStopChallenge}
+                onLongPress={__DEV__ ? handleAlarmSolved : undefined}
                 style={({pressed}) => [
                   styles.actionBtn,
                   {
