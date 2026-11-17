@@ -15,7 +15,18 @@ class AlarmReceiver : BroadcastReceiver() {
     }
     val isSnooze = intent.getBooleanExtra(AlarmIntents.EXTRA_IS_SNOOZE, false)
     val occurrenceId = intent.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
-    handleAlarmFired(context, alarmId, isSnooze, occurrenceId)
+    val intentAlarmType = intent.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
+    val intentRitualText = intent.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
+    val intentRepetitionTarget = intent.getIntExtra(AlarmIntents.EXTRA_REPETITION_TARGET, -1)
+    handleAlarmFired(
+        context,
+        alarmId,
+        isSnooze,
+        occurrenceId,
+        intentAlarmType,
+        intentRitualText,
+        intentRepetitionTarget,
+    )
   }
 
   internal fun handleAlarmFired(
@@ -23,15 +34,29 @@ class AlarmReceiver : BroadcastReceiver() {
       alarmId: String,
       isSnooze: Boolean = false,
       occurrenceId: String? = null,
+      intentAlarmType: String? = null,
+      intentRitualText: String? = null,
+      intentRepetitionTarget: Int = -1,
   ) {
     val store = AlarmStore(context)
-    val alarm =
+    val rawAlarm =
         try {
           store.get(alarmId)
         } catch (error: Exception) {
           Log.e(ALARM_LOG_TAG, "Failed to load alarm $alarmId from store.", error)
           null
         }
+
+    val alarm = rawAlarm?.let {
+      val resolvedType = intentAlarmType?.takeIf { t -> t.isNotBlank() } ?: it.alarmType
+      val resolvedText = intentRitualText?.takeIf { t -> t.isNotBlank() } ?: it.ritualText
+      val resolvedTarget = if (intentRepetitionTarget > 0) intentRepetitionTarget else it.repetitionTarget
+      if (resolvedType != it.alarmType || resolvedText != it.ritualText || resolvedTarget != it.repetitionTarget) {
+        it.copy(alarmType = resolvedType, ritualText = resolvedText, repetitionTarget = resolvedTarget)
+      } else {
+        it
+      }
+    }
 
     if (alarm == null) {
       if (isSnooze) {

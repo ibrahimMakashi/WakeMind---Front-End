@@ -80,11 +80,16 @@ internal object AlarmNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+    val isVision = alarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL
+    val notifTitle = if (isVision) "Vision Ritual" else "B-Discipline"
+    val notifText = if (isVision && !ritualText.isNullOrBlank()) ritualText else label
+
     val builder =
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(com.wakemind.app.R.drawable.ic_alarm_notification)
-            .setContentTitle("WakeMind")
-            .setContentText(label)
+            .setContentTitle(notifTitle)
+            .setContentText(notifText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(notifText))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -141,7 +146,13 @@ internal object AlarmNotifications {
     val finalRitualText = ritualText ?: storeAlarm?.ritualText ?: ""
     val finalRepetitionTarget = repetitionTarget ?: storeAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET
 
+    val isVision = finalAlarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL || finalRitualText.isNotBlank()
+    val resolvedAlarmType = if (isVision) AlarmDefaults.ALARM_TYPE_VISION_RITUAL else AlarmDefaults.ALARM_TYPE_NORMAL
+    val mode = if (isVision) AlarmIntents.MODE_VISION_RITUAL else AlarmIntents.MODE_ALARM
+
     return Intent(context, RingingActivity::class.java).apply {
+      action = "com.wakemind.app.alarm.RING_${resolvedAlarmType}_${alarmId}_${finalOccId}"
+      data = android.net.Uri.parse("wakemind://ringing/$resolvedAlarmType/$alarmId/$finalOccId")
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra(AlarmIntents.EXTRA_ALARM_ID, alarmId)
       putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, finalOccId)
@@ -153,7 +164,8 @@ internal object AlarmNotifications {
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, finalImageType)
       putExtra(AlarmIntents.EXTRA_DIFFICULTY, finalDifficulty)
       putExtra(AlarmIntents.EXTRA_SOUND, finalSound)
-      putExtra(AlarmIntents.EXTRA_ALARM_TYPE, finalAlarmType)
+      putExtra(AlarmIntents.EXTRA_ALARM_TYPE, resolvedAlarmType)
+      putExtra(AlarmIntents.EXTRA_MODE, mode)
       putExtra(AlarmIntents.EXTRA_RITUAL_TEXT, finalRitualText)
       putExtra(AlarmIntents.EXTRA_REPETITION_TARGET, finalRepetitionTarget)
     }

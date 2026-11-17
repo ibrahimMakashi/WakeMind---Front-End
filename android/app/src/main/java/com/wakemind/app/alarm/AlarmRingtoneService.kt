@@ -51,7 +51,7 @@ class AlarmRingtoneService : Service() {
     val canSnooze = snoozeCount == 0
 
     val storedAlarm = AlarmStore(this).get(alarmId)
-    val alarmType = intent.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
+    val rawAlarmType = intent.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
         ?: storedAlarm?.alarmType
         ?: AlarmDefaults.ALARM_TYPE_NORMAL
     val ritualText = intent.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
@@ -61,6 +61,12 @@ class AlarmRingtoneService : Service() {
         AlarmIntents.EXTRA_REPETITION_TARGET,
         storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET,
     )
+    val isVisionRitual = rawAlarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL || ritualText.isNotBlank()
+    val alarmType = if (isVisionRitual) AlarmDefaults.ALARM_TYPE_VISION_RITUAL else AlarmDefaults.ALARM_TYPE_NORMAL
+
+    if (!isRinging || currentRingingAlarmId != alarmId || currentOccurrenceId != occurrenceId) {
+      RingingActivity.finishActive()
+    }
 
     promoteToForeground(
         alarmId,
@@ -86,7 +92,10 @@ class AlarmRingtoneService : Service() {
       currentRingingAlarmId = alarmId
       currentOccurrenceId = occurrenceId
       currentSnoozeCount = snoozeCount
-      currentAlarm = AlarmStore(this).get(alarmId)
+      currentAlarmType = alarmType
+      currentRitualText = ritualText
+      currentRepetitionTarget = repetitionTarget
+      currentAlarm = storedAlarm ?: AlarmStore(this).get(alarmId)
       isRinging = true
       scheduleSafetyStop()
     } catch (error: Exception) {
@@ -262,6 +271,9 @@ class AlarmRingtoneService : Service() {
     currentSnoozeCount = 0
     currentAlarm = null
     currentAlarmId = null
+    currentAlarmType = AlarmDefaults.ALARM_TYPE_NORMAL
+    currentRitualText = ""
+    currentRepetitionTarget = AlarmDefaults.DEFAULT_REPETITION_TARGET
     try {
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
     } catch (error: Exception) {
@@ -304,6 +316,9 @@ class AlarmRingtoneService : Service() {
     @Volatile internal var currentOccurrenceId: String? = null
     @Volatile internal var currentSnoozeCount: Int = 0
     @Volatile internal var currentAlarm: StoredAlarm? = null
+    @Volatile internal var currentAlarmType: String = AlarmDefaults.ALARM_TYPE_NORMAL
+    @Volatile internal var currentRitualText: String = ""
+    @Volatile internal var currentRepetitionTarget: Int = AlarmDefaults.DEFAULT_REPETITION_TARGET
 
     internal fun start(
         context: Context,

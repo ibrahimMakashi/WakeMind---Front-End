@@ -83,6 +83,9 @@ internal object SnoozeController {
               puzzleImageType = currentAlarm.puzzleImageType,
               difficulty = currentAlarm.difficulty,
               sound = currentAlarm.sound,
+              alarmType = currentAlarm.alarmType,
+              ritualText = currentAlarm.ritualText,
+              repetitionTarget = currentAlarm.repetitionTarget,
           )
 
       // 4. Persist SnoozeRecord atomically

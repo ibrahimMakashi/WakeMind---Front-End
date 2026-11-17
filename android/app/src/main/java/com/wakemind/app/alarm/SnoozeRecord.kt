@@ -14,6 +14,9 @@ internal data class SnoozeRecord(
     val puzzleImageType: String,
     val difficulty: String,
     val sound: String,
+    val alarmType: String = AlarmDefaults.ALARM_TYPE_NORMAL,
+    val ritualText: String = "",
+    val repetitionTarget: Int = AlarmDefaults.DEFAULT_REPETITION_TARGET,
 ) {
   fun toJson(): JSONObject =
       JSONObject().apply {
@@ -28,6 +31,9 @@ internal data class SnoozeRecord(
         put("puzzleImageType", puzzleImageType)
         put("difficulty", difficulty)
         put("sound", sound)
+        put("alarmType", alarmType)
+        put("ritualText", ritualText)
+        put("repetitionTarget", repetitionTarget)
       }
 
   companion object {
@@ -44,6 +50,9 @@ internal data class SnoozeRecord(
             puzzleImageType = json.optString("puzzleImageType", AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE),
             difficulty = json.optString("difficulty", AlarmDefaults.DIFFICULTY_EASY),
             sound = json.optString("sound", AlarmDefaults.DEFAULT_ALARM_SOUND_ID),
+            alarmType = json.optString("alarmType", AlarmDefaults.ALARM_TYPE_NORMAL),
+            ritualText = json.optString("ritualText", ""),
+            repetitionTarget = json.optInt("repetitionTarget", AlarmDefaults.DEFAULT_REPETITION_TARGET),
         )
 
     private fun requiredString(json: JSONObject, key: String): String {

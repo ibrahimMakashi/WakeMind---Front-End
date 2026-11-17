@@ -46,6 +46,7 @@ jest.mock('../../services/alarmService', () => ({
   snoozeAlarm: jest.fn().mockResolvedValue(true),
   dismissAlarmAfterPuzzle: jest.fn().mockResolvedValue(true),
   finishRingingActivity: jest.fn().mockResolvedValue(true),
+  getVisionRituals: jest.fn().mockResolvedValue([]),
 }));
 
 describe('VisionRitualRingingScreen', () => {

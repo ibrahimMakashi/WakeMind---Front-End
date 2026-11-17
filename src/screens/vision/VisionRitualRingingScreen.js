@@ -18,6 +18,7 @@ import {
   canSnoozeAlarm,
   dismissAlarmAfterPuzzle,
   finishRingingActivity,
+  getVisionRituals,
   snoozeAlarm,
 } from '../../services/alarmService';
 import {useTheme} from '../../theme/ThemeProvider';
@@ -40,10 +41,34 @@ export function VisionRitualRingingScreen({
   const [isDismissing, setIsDismissing] = useState(false);
   const [snoozeAllowed, setSnoozeAllowed] = useState(initialCanSnooze);
   const [snoozing, setSnoozing] = useState(false);
+  const [loadedRitual, setLoadedRitual] = useState(null);
 
   const dismissingRef = useRef(false);
   const finalDismissedRef = useRef(false);
   const lastTapRef = useRef(0);
+
+  // Fallback load ritual configuration specifically matching this alarmId
+  useEffect(() => {
+    let active = true;
+    if ((!ritualText || !repetitionTarget) && alarmId) {
+      getVisionRituals()
+        .then(rituals => {
+          if (active && Array.isArray(rituals)) {
+            const found = rituals.find(r => r.id === alarmId);
+            if (found) {
+              setLoadedRitual(found);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [alarmId, ritualText, repetitionTarget]);
+
+  const activeText = (ritualText || loadedRitual?.ritualText || '').trim();
+  const activeTarget = repetitionTarget || loadedRitual?.repetitionTarget || 10;
 
   // Pulse animation for ringing indicator
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -125,7 +150,7 @@ export function VisionRitualRingingScreen({
     }
     lastTapRef.current = now;
 
-    if (count >= repetitionTarget || dismissingRef.current) {
+    if (count >= activeTarget || dismissingRef.current) {
       return;
     }
 
@@ -133,10 +158,10 @@ export function VisionRitualRingingScreen({
     setCount(next);
     Vibration.vibrate(40);
 
-    if (next >= repetitionTarget) {
+    if (next >= activeTarget) {
       handleComplete();
     }
-  }, [count, repetitionTarget, handleComplete]);
+  }, [count, activeTarget, handleComplete]);
 
   // Snooze action
   const handleSnooze = useCallback(async () => {
@@ -163,7 +188,7 @@ export function VisionRitualRingingScreen({
     }
   }, []);
 
-  const progressPercent = Math.min(100, Math.round((count / repetitionTarget) * 100));
+  const progressPercent = Math.min(100, Math.round((count / activeTarget) * 100));
 
   if (stage === 'completion') {
     return (
@@ -190,7 +215,7 @@ export function VisionRitualRingingScreen({
           </Text>
 
           <Text style={[typography.body, styles.completionSubtitle, {color: colors.textSoft}]}>
-            Affirmation recited {repetitionTarget} times.
+            Affirmation recited {activeTarget} times.
           </Text>
 
           <SurfaceCard style={[styles.completionQuoteCard, {borderRadius: radius.md}]}>
@@ -198,7 +223,7 @@ export function VisionRitualRingingScreen({
             <Text
               numberOfLines={4}
               style={[typography.bodyStrong, styles.completionQuote, {color: colors.text}]}>
-              {ritualText || 'Discipline is destiny.'}
+              {activeText || 'Discipline is destiny.'}
             </Text>
           </SurfaceCard>
 
@@ -248,7 +273,7 @@ export function VisionRitualRingingScreen({
         </Animated.View>
 
         <Text style={[typography.caption, styles.headerSubtitle, {color: colors.accent}]}>
-          {label.toUpperCase()}
+          VISION RITUAL
         </Text>
 
         <View style={styles.timeRow}>
@@ -275,7 +300,7 @@ export function VisionRitualRingingScreen({
           showsVerticalScrollIndicator={true}
           style={styles.textScroll}>
           <Text style={[typography.body, styles.affirmationText, {color: colors.text}]}>
-            {ritualText || 'I am focused, disciplined, and ready to conquer today.'}
+            {activeText || 'I am focused, disciplined, and ready to conquer today.'}
           </Text>
         </ScrollView>
       </SurfaceCard>
@@ -284,10 +309,10 @@ export function VisionRitualRingingScreen({
       <View style={styles.progressSection}>
         <View style={styles.counterRow}>
           <Text style={[typography.cardHeading, {color: colors.textSoft}]}>
-            RECITATIONS
+            {`RECITE ${activeTarget} TIMES`}
           </Text>
           <Text style={[typography.screenTitle, styles.counterNumber, {color: colors.accent}]}>
-            {count} / {repetitionTarget}
+            {count} / {activeTarget}
           </Text>
         </View>
 
@@ -306,9 +331,9 @@ export function VisionRitualRingingScreen({
 
       {/* 4. Prominent Count Button */}
       <Pressable
-        accessibilityLabel={`Count recitation ${count} of ${repetitionTarget}`}
+        accessibilityLabel={`Count recitation ${count} of ${activeTarget}`}
         accessibilityRole="button"
-        disabled={count >= repetitionTarget || isDismissing}
+        disabled={count >= activeTarget || isDismissing}
         onPress={handleCountTap}
         style={({pressed}) => [
           styles.countBtn,
@@ -321,7 +346,7 @@ export function VisionRitualRingingScreen({
           size={24}
         />
         <Text style={[typography.screenTitle, styles.countBtnText, {color: colors.accentText || '#0B111D'}]}>
-          {count >= repetitionTarget ? 'COMPLETING...' : 'COUNT (+1)'}
+          {count >= activeTarget ? 'COMPLETING...' : 'COUNT'}
         </Text>
       </Pressable>
 
@@ -330,7 +355,7 @@ export function VisionRitualRingingScreen({
         <Pressable
           accessibilityLabel="Snooze alarm for 5 minutes"
           accessibilityRole="button"
-          disabled={snoozing || count >= repetitionTarget}
+          disabled={snoozing || count >= activeTarget}
           onPress={handleSnooze}
           style={styles.snoozeBtn}>
           <Text style={[typography.bodyStrong, {color: colors.muted}]}>

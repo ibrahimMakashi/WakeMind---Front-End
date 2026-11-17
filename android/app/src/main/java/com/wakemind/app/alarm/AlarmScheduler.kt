@@ -44,7 +44,7 @@ internal object AlarmScheduler {
         PendingIntent.getBroadcast(
             context,
             requestCode(alarm.id),
-            fireIntent(context, alarm.id),
+            fireIntent(context, alarm),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     val show = showPendingIntent(context)
@@ -95,7 +95,7 @@ internal object AlarmScheduler {
             ?: throw IllegalStateException("AlarmManager unavailable")
 
     val requestCode = snoozeRequestCode(record.alarmId, record.occurrenceId)
-    val fireIntent = snoozeFireIntent(context, record.alarmId, record.occurrenceId)
+    val fireIntent = snoozeFireIntent(context, record)
 
     val operation =
         pendingIntentFactory(
@@ -172,6 +172,21 @@ internal object AlarmScheduler {
     return ("$alarmId:$occurrenceId:snooze").hashCode() and 0x7FFFFFFF
   }
 
+  private fun snoozeFireIntent(context: Context, record: SnoozeRecord): Intent {
+    return Intent(context, AlarmReceiver::class.java).apply {
+      action = AlarmIntents.ACTION_FIRE
+      putExtra(AlarmIntents.EXTRA_ALARM_ID, record.alarmId)
+      putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, record.occurrenceId)
+      putExtra(AlarmIntents.EXTRA_IS_SNOOZE, true)
+      putExtra(AlarmIntents.EXTRA_ALARM_TYPE, record.alarmType)
+      putExtra(AlarmIntents.EXTRA_RITUAL_TEXT, record.ritualText)
+      putExtra(AlarmIntents.EXTRA_REPETITION_TARGET, record.repetitionTarget)
+      putExtra(AlarmIntents.EXTRA_LABEL, record.label)
+      putExtra(AlarmIntents.EXTRA_SOUND, record.sound)
+      putExtra(AlarmIntents.EXTRA_VIBRATE, record.vibrate)
+    }
+  }
+
   private fun snoozeFireIntent(context: Context, alarmId: String, occurrenceId: String): Intent {
     return Intent(context, AlarmReceiver::class.java).apply {
       action = AlarmIntents.ACTION_FIRE
@@ -201,6 +216,19 @@ internal object AlarmScheduler {
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
     val canSchedule = alarmManager?.canScheduleExactAlarms() ?: true
     return ExactAlarmPolicy.decide(Build.VERSION.SDK_INT, canSchedule)
+  }
+
+  private fun fireIntent(context: Context, alarm: StoredAlarm): Intent {
+    return Intent(context, AlarmReceiver::class.java).apply {
+      action = AlarmIntents.ACTION_FIRE
+      putExtra(AlarmIntents.EXTRA_ALARM_ID, alarm.id)
+      putExtra(AlarmIntents.EXTRA_ALARM_TYPE, alarm.alarmType)
+      putExtra(AlarmIntents.EXTRA_RITUAL_TEXT, alarm.ritualText)
+      putExtra(AlarmIntents.EXTRA_REPETITION_TARGET, alarm.repetitionTarget)
+      putExtra(AlarmIntents.EXTRA_LABEL, alarm.label)
+      putExtra(AlarmIntents.EXTRA_SOUND, alarm.sound)
+      putExtra(AlarmIntents.EXTRA_VIBRATE, alarm.vibrate)
+    }
   }
 
   private fun fireIntent(context: Context, alarmId: String): Intent {

@@ -8,10 +8,18 @@ import {VisionRitualRingingScreen} from '../screens/vision/VisionRitualRingingSc
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 
 export default function App(props) {
-  if (
-    (props?.mode === 'vision_ritual' || props?.alarmType === 'vision_ritual') &&
-    props?.alarmId
-  ) {
+  const modeStr = String(props?.mode || '').toLowerCase();
+  const typeStr = String(props?.alarmType || '').toLowerCase();
+  const hasRitualText = Boolean(
+    typeof props?.ritualText === 'string' && props.ritualText.trim().length > 0,
+  );
+
+  const isVisionRitual =
+    modeStr === 'vision_ritual' ||
+    typeStr === 'vision_ritual' ||
+    hasRitualText;
+
+  if (isVisionRitual && props?.alarmId) {
     return (
       <SafeAreaProvider>
         <ThemeProvider>
@@ -21,7 +29,7 @@ export default function App(props) {
     );
   }
 
-  if (props?.mode === 'alarm' && props?.alarmId) {
+  if (modeStr === 'alarm' && props?.alarmId) {
     return (
       <SafeAreaProvider>
         <ThemeProvider>

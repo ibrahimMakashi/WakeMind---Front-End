@@ -32,6 +32,8 @@ class RingingActivity : ReactActivity() {
   override fun onNewIntent(intent: android.content.Intent?) {
     super.onNewIntent(intent)
     setIntent(intent)
+    // Recreate activity so React Native re-executes getLaunchOptions() with the new intent extras
+    recreate()
   }
 
   override fun onDestroy() {
@@ -46,53 +48,81 @@ class RingingActivity : ReactActivity() {
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       object : DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled) {
         override fun getLaunchOptions(): Bundle {
-          val alarmId = intent?.getStringExtra(AlarmIntents.EXTRA_ALARM_ID) ?: ""
-          val label =
-              intent?.getStringExtra(AlarmIntents.EXTRA_LABEL) ?: AlarmDefaults.DEFAULT_LABEL
-          val triggerAt =
-              intent?.getLongExtra(AlarmIntents.EXTRA_TRIGGER_AT, System.currentTimeMillis())
-                  ?: System.currentTimeMillis()
-          val puzzleImageId =
-              intent?.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID)
-                  ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
-          val puzzleImageType =
-              intent?.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE)
-                  ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
-          val difficulty =
-              intent?.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
-                  ?: AlarmDefaults.DIFFICULTY_EASY
-          val sound =
-              intent?.getStringExtra(AlarmIntents.EXTRA_SOUND)
-                  ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
-
-          val occurrenceId =
-              intent?.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
-                  ?: AlarmRingtoneService.currentOccurrenceId
-                  ?: "${alarmId}_${triggerAt}"
-          val canSnooze =
-              intent?.getBooleanExtra(
-                  AlarmIntents.EXTRA_CAN_SNOOZE,
-                  AlarmRingtoneService.currentSnoozeCount == 0,
-              ) ?: (AlarmRingtoneService.currentSnoozeCount == 0)
+          val incomingIntent = intent
+          val alarmId =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_ALARM_ID)
+                  ?.takeIf { it.isNotBlank() }
+                  ?: AlarmRingtoneService.currentRingingAlarmId
+                  ?: ""
 
           val storedAlarm =
               if (alarmId.isNotBlank()) AlarmStore(this@RingingActivity).get(alarmId) else null
-          val alarmType =
-              intent?.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
+          val activeAlarm = AlarmRingtoneService.currentAlarm
+
+          val occurrenceId =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_OCCURRENCE_ID)
+                  ?: AlarmRingtoneService.currentOccurrenceId
+                  ?: "${alarmId}_${System.currentTimeMillis()}"
+
+          val rawAlarmType =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
                   ?: storedAlarm?.alarmType
-                  ?: AlarmDefaults.ALARM_TYPE_NORMAL
-          val ritualText =
-              intent?.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
+                  ?: activeAlarm?.alarmType
+                  ?: AlarmRingtoneService.currentAlarmType
+
+          val rawRitualText =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
                   ?: storedAlarm?.ritualText
-                  ?: ""
-          val repetitionTarget =
-              intent?.getIntExtra(
-                  AlarmIntents.EXTRA_REPETITION_TARGET,
-                  storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET,
-              ) ?: (storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET)
+                  ?: activeAlarm?.ritualText
+                  ?: AlarmRingtoneService.currentRitualText
+
+          val rawRepetitionTarget =
+              incomingIntent?.getIntExtra(AlarmIntents.EXTRA_REPETITION_TARGET, -1)?.takeIf { it > 0 }
+                  ?: storedAlarm?.repetitionTarget
+                  ?: activeAlarm?.repetitionTarget
+                  ?: AlarmRingtoneService.currentRepetitionTarget
+
+          val isVisionRitual =
+              rawAlarmType.equals(AlarmDefaults.ALARM_TYPE_VISION_RITUAL, ignoreCase = true)
+                  || rawRitualText.isNotBlank()
+                  || incomingIntent?.getStringExtra(AlarmIntents.EXTRA_MODE).equals(AlarmIntents.MODE_VISION_RITUAL, ignoreCase = true)
+
+          val finalAlarmType =
+              if (isVisionRitual) AlarmDefaults.ALARM_TYPE_VISION_RITUAL
+              else AlarmDefaults.ALARM_TYPE_NORMAL
+
           val mode =
-              if (alarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL) AlarmIntents.MODE_VISION_RITUAL
+              if (isVisionRitual) AlarmIntents.MODE_VISION_RITUAL
               else AlarmIntents.MODE_ALARM
+
+          val label =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_LABEL)
+                  ?: storedAlarm?.label
+                  ?: (if (isVisionRitual) "Vision Ritual" else AlarmDefaults.DEFAULT_LABEL)
+          val triggerAt =
+              incomingIntent?.getLongExtra(AlarmIntents.EXTRA_TRIGGER_AT, System.currentTimeMillis())
+                  ?: System.currentTimeMillis()
+          val puzzleImageId =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_ID)
+                  ?: storedAlarm?.puzzleImageId
+                  ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
+          val puzzleImageType =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE)
+                  ?: storedAlarm?.puzzleImageType
+                  ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
+          val difficulty =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_DIFFICULTY)
+                  ?: storedAlarm?.difficulty
+                  ?: AlarmDefaults.DIFFICULTY_EASY
+          val sound =
+              incomingIntent?.getStringExtra(AlarmIntents.EXTRA_SOUND)
+                  ?: storedAlarm?.sound
+                  ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
+          val canSnooze =
+              incomingIntent?.getBooleanExtra(
+                  AlarmIntents.EXTRA_CAN_SNOOZE,
+                  AlarmRingtoneService.currentSnoozeCount == 0,
+              ) ?: (AlarmRingtoneService.currentSnoozeCount == 0)
 
           return Bundle().apply {
             putString("mode", mode)
@@ -105,9 +135,9 @@ class RingingActivity : ReactActivity() {
             putString("puzzleImageType", puzzleImageType)
             putString("difficulty", difficulty)
             putString("sound", sound)
-            putString("alarmType", alarmType)
-            putString("ritualText", ritualText)
-            putInt("repetitionTarget", repetitionTarget)
+            putString("alarmType", finalAlarmType)
+            putString("ritualText", rawRitualText)
+            putInt("repetitionTarget", rawRepetitionTarget)
           }
         }
       }
