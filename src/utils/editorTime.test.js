@@ -64,7 +64,7 @@ test('opens the picker with the current draft converted to 24-hour time', () => 
   expect(to24Hour(afternoon.hour12, afternoon.period)).toBe(18);
 });
 
-test('builds save payloads that preserve enabled state and alarm id when editing', () => {
+test('builds save payloads that activate inactive alarms upon save when editing', () => {
   const alarm = {
     id: 'alarm-1',
     enabled: false,
@@ -91,7 +91,7 @@ test('builds save payloads that preserve enabled state and alarm id when editing
     id: 'alarm-1',
     hour: 6,
     minute: 30,
-    enabled: false,
+    enabled: true,
     vibrate: false,
     label: 'Morning',
     puzzleImageId: 'mount-fuji',

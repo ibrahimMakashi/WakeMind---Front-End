@@ -5,7 +5,7 @@ import {AlarmQnaScreen} from './AlarmQnaScreen';
 import {MissionActiveScreen} from './MissionActiveScreen';
 import {MissionCompletionScreen} from './MissionCompletionScreen';
 import {DEFAULT_QNA_QUESTIONS} from '../../data/qnaQuestions';
-import {canSnoozeAlarm, dismissAlarmAfterPuzzle, snoozeAlarm} from '../../services/alarmService';
+import {canSnoozeAlarm, dismissAlarmAfterPuzzle, finishRingingActivity, snoozeAlarm} from '../../services/alarmService';
 import {useTheme} from '../../theme/ThemeProvider';
 
 export function AlarmRingingScreen({
@@ -28,6 +28,7 @@ export function AlarmRingingScreen({
   const [qnaCompleted, setQnaCompleted] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
   const dismissingRef = useRef(false);
+  const finalDismissedRef = useRef(false);
   const [snoozeAllowed, setSnoozeAllowed] = useState(initialCanSnooze);
   const [snoozing, setSnoozing] = useState(false);
   const [snoozeError, setSnoozeError] = useState('');
@@ -93,35 +94,39 @@ export function AlarmRingingScreen({
     setStage('qna');
   }, [puzzleCompleted]);
 
-  // Stage 3 -> Stage 4: Q&A Completed -> Move to Completion (DO NOT dismiss alarm yet!)
-  const handleQnaComplete = useCallback(() => {
-    if (qnaCompleted) {
-      return;
-    }
-    setQnaCompleted(true);
-    setStage('completion');
-  }, [qnaCompleted]);
-
-  // Stage 4 -> Dismiss Alarm: Final CTA acknowledged by user
-  const handleFinalDismiss = useCallback(async () => {
-    if (dismissingRef.current) {
+  // Stage 3 -> Stage 4: Q&A Completed -> STOP alarm sound + vibration, mark occurrence completed, then show completion screen!
+  const handleQnaComplete = useCallback(async () => {
+    if (qnaCompleted || dismissingRef.current) {
       return;
     }
     dismissingRef.current = true;
+    setQnaCompleted(true);
     setIsDismissing(true);
     try {
-      const dismissed = await dismissAlarmAfterPuzzle(alarmId, occurrenceId);
-      if (!dismissed) {
-        console.warn(`Alarm final dismissal was rejected for alarmId=${alarmId}, occurrenceId=${occurrenceId}`);
-        dismissingRef.current = false;
-        setIsDismissing(false);
+      if (alarmId && occurrenceId) {
+        await dismissAlarmAfterPuzzle(alarmId, occurrenceId);
       }
     } catch (err) {
-      console.warn('Alarm final dismissal error:', err);
-      dismissingRef.current = false;
+      console.warn('Alarm audio dismissal error on Q&A complete:', err);
+    } finally {
       setIsDismissing(false);
+      setStage('completion');
     }
-  }, [alarmId, occurrenceId]);
+  }, [alarmId, occurrenceId, qnaCompleted]);
+
+  // Stage 4 -> Close Ringing Activity: Final CTA acknowledged by user
+  const handleFinalDismiss = useCallback(async () => {
+    if (finalDismissedRef.current) {
+      return;
+    }
+    finalDismissedRef.current = true;
+    try {
+      await finishRingingActivity();
+    } catch (err) {
+      console.warn('Finish ringing activity error:', err);
+      finalDismissedRef.current = false;
+    }
+  }, []);
 
   return (
     <View style={[styles.container, {backgroundColor: colors.background || '#070C16'}]}>

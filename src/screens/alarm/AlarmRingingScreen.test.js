@@ -26,6 +26,7 @@ jest.mock('../../services/alarmService', () => ({
   canSnoozeAlarm: jest.fn().mockResolvedValue(true),
   snoozeAlarm: jest.fn().mockResolvedValue(true),
   dismissAlarmAfterPuzzle: jest.fn().mockResolvedValue(true),
+  finishRingingActivity: jest.fn().mockResolvedValue(true),
   stopRinging: jest.fn().mockResolvedValue(null),
 }));
 
@@ -173,7 +174,7 @@ describe('AlarmRingingScreen Flow', () => {
     expect(activeRenderer.root.findAllByType(MissionCompletionScreen)).toHaveLength(0);
   });
 
-  test('Q&A completion transitions to MissionCompletionScreen and DOES NOT dismiss alarm', async () => {
+  test('Q&A completion stops alarm audio via dismissAlarmAfterPuzzle and transitions to MissionCompletionScreen', async () => {
     await act(async () => {
       activeRenderer = create(<AlarmRingingScreen {...baseProps} />);
     });
@@ -191,13 +192,16 @@ describe('AlarmRingingScreen Flow', () => {
     const qnaScreen = activeRenderer.root.findByType(AlarmQnaScreen);
     expect(qnaScreen.props.onComplete).toBeDefined();
 
-    // 3. Complete Q&A
+    // 3. Complete Q&A: dismissAlarmAfterPuzzle must be called to stop sound and vibration
     await act(async () => {
-      qnaScreen.props.onComplete();
+      await qnaScreen.props.onComplete();
     });
 
-    // Native dismiss must still NOT be called
-    expect(alarmService.dismissAlarmAfterPuzzle).not.toHaveBeenCalled();
+    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledTimes(1);
+    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledWith(
+      'alarm-test-1',
+      'occ-test-1_12345678',
+    );
 
     // MissionCompletionScreen is now visible!
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
@@ -206,7 +210,7 @@ describe('AlarmRingingScreen Flow', () => {
     expect(completionScreen.props.alarmId).toBe('alarm-test-1');
   });
 
-  test('tapping final CTA on CompletionScreen dismisses alarm via dismissAlarmAfterPuzzle with occurrenceId', async () => {
+  test('tapping final CTA on CompletionScreen finishes activity via finishRingingActivity', async () => {
     await act(async () => {
       activeRenderer = create(<AlarmRingingScreen {...baseProps} />);
     });
@@ -223,25 +227,21 @@ describe('AlarmRingingScreen Flow', () => {
 
     // 3. Q&A -> Completion
     await act(async () => {
-      activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
+      await activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
     });
 
-    expect(alarmService.dismissAlarmAfterPuzzle).not.toHaveBeenCalled();
+    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledTimes(1);
 
     // 4. User explicitly acknowledges completion
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
     await act(async () => {
-      completionScreen.props.onDismiss();
+      await completionScreen.props.onDismiss();
     });
 
-    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledTimes(1);
-    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledWith(
-      'alarm-test-1',
-      'occ-test-1_12345678',
-    );
+    expect(alarmService.finishRingingActivity).toHaveBeenCalledTimes(1);
   });
 
-  test('double tap protection: multiple onDismiss calls only execute dismiss once', async () => {
+  test('double tap protection: multiple onDismiss calls only execute finishRingingActivity once', async () => {
     await act(async () => {
       activeRenderer = create(<AlarmRingingScreen {...baseProps} />);
     });
@@ -253,7 +253,7 @@ describe('AlarmRingingScreen Flow', () => {
       activeRenderer.root.findByType(AlarmPuzzleScreen).props.onSolved('alarm-test-1', 'occ-test-1_12345678');
     });
     await act(async () => {
-      activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
+      await activeRenderer.root.findByType(AlarmQnaScreen).props.onComplete();
     });
 
     const completionScreen = activeRenderer.root.findByType(MissionCompletionScreen);
@@ -264,7 +264,7 @@ describe('AlarmRingingScreen Flow', () => {
       completionScreen.props.onDismiss();
     });
 
-    expect(alarmService.dismissAlarmAfterPuzzle).toHaveBeenCalledTimes(1);
+    expect(alarmService.finishRingingActivity).toHaveBeenCalledTimes(1);
   });
 
   test('snooze button invokes native snoozeAlarm with occurrenceId', async () => {

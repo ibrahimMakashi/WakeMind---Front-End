@@ -21,4 +21,8 @@ internal object AlarmDefaults {
   const val MAX_LABEL_LENGTH = 80
   const val DEFAULT_PUZZLE_IMAGE_ID = "moraine-lake"
   const val DEFAULT_PUZZLE_IMAGE_TYPE = "bundled"
+  const val ALARM_TYPE_NORMAL = "normal"
+  const val ALARM_TYPE_VISION_RITUAL = "vision_ritual"
+  const val MAX_VISION_RITUALS = 3
+  const val DEFAULT_REPETITION_TARGET = 10
 }

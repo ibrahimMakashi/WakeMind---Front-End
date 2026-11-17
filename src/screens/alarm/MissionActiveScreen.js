@@ -1,6 +1,7 @@
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {AppIcon} from '../../components/AppIcon';
 import {getAlarmSoundName} from '../../constants/alarmSounds';
 import {useTheme} from '../../theme/ThemeProvider';
+import {usePrefersReducedMotion} from '../../theme/usePrefersReducedMotion';
 
 export function MissionActiveScreen({
   alarmId = '',
@@ -28,7 +30,93 @@ export function MissionActiveScreen({
 }) {
   const insets = useSafeAreaInsets();
   const {colors} = useTheme();
+  const reducedMotion = usePrefersReducedMotion();
   const [starting, setStarting] = useState(false);
+
+  const ringWaveAnim = useRef(new Animated.Value(0)).current;
+  const bellShakeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (reducedMotion) {
+      return;
+    }
+
+    // 1. Smooth expanding ripple wave animation
+    const waveLoop = Animated.loop(
+      Animated.timing(ringWaveAnim, {
+        toValue: 1,
+        duration: 1800,
+        useNativeDriver: true,
+      }),
+    );
+
+    // 2. Alarm bell rhythmic ringing wobble oscillation
+    const bellLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bellShakeAnim, {
+          toValue: 1,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bellShakeAnim, {
+          toValue: -1,
+          duration: 110,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bellShakeAnim, {
+          toValue: 1,
+          duration: 110,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bellShakeAnim, {
+          toValue: -0.5,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bellShakeAnim, {
+          toValue: 0,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.delay(650),
+      ]),
+    );
+
+    waveLoop.start();
+    bellLoop.start();
+
+    return () => {
+      waveLoop.stop();
+      bellLoop.stop();
+    };
+  }, [bellShakeAnim, reducedMotion, ringWaveAnim]);
+
+  const outerScale = ringWaveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.95, 1.28],
+  });
+  const outerOpacity = ringWaveAnim.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0.8, 0.45, 0],
+  });
+
+  const middleScale = ringWaveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.9, 1.16],
+  });
+  const middleOpacity = ringWaveAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.9, 0.5, 0.1],
+  });
+
+  const bellRotate = bellShakeAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-10deg', '0deg', '10deg'],
+  });
+  const bellScale = bellShakeAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [1.06, 1.0, 1.06],
+  });
 
   const alarmTime = useMemo(() => {
     const date = triggerAtMillis ? new Date(triggerAtMillis) : new Date();
@@ -164,20 +252,37 @@ export function MissionActiveScreen({
           </View>
         </View>
 
-        {/* Central Radial Alarm Bell */}
+        {/* Central Radial Alarm Bell with Live Ring Animation */}
         <View style={styles.centralVisualContainer}>
-          <View style={styles.outerGlowRing} />
-          <View style={styles.middleGlowRing} />
-          <View
+          <Animated.View
+            style={[
+              styles.outerGlowRing,
+              {
+                opacity: outerOpacity,
+                transform: [{scale: outerScale}],
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.middleGlowRing,
+              {
+                opacity: middleOpacity,
+                transform: [{scale: middleScale}],
+              },
+            ]}
+          />
+          <Animated.View
             style={[
               styles.bellCircle,
               {
                 backgroundColor: colors.surfaceRaised || '#121927',
                 borderColor: colors.borderSubtle || '#243046',
+                transform: [{scale: bellScale}, {rotate: bellRotate}],
               },
             ]}>
             <AppIcon color={colors.accent || '#FFB84D'} name="bell-ring" size={38} />
-          </View>
+          </Animated.View>
         </View>
 
         {/* Big Time Display */}

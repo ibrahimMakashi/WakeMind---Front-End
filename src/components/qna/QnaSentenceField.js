@@ -41,37 +41,88 @@ export function QnaSentenceField({
   const characterNodes = useMemo(() => {
     const expectedChars = expectedAnswer ? expectedAnswer.split('') : [];
     const typedChars = typedValue ? typedValue.split('') : [];
-    const totalLength = Math.max(expectedChars.length, typedChars.length);
+
+    // Find the first index where typed characters deviate from expected
+    let firstMismatchIndex = -1;
+    for (let i = 0; i < typedChars.length; i += 1) {
+      if (i >= expectedChars.length || typedChars[i] !== expectedChars[i]) {
+        firstMismatchIndex = i;
+        break;
+      }
+    }
+
+    const hasError = firstMismatchIndex !== -1;
+    // Current next-character box is displayed at typedChars.length if no error and not finished
+    const currentBoxIndex =
+      !hasError && !isSuccess && typedChars.length < expectedChars.length
+        ? typedChars.length
+        : -1;
 
     const nodes = [];
-    for (let i = 0; i < totalLength; i += 1) {
-      const expectedChar = expectedChars[i];
-      const typedChar = typedChars[i];
 
-      let state = QNA_CHAR_STATES.NOT_TYPED;
-      let displayChar = expectedChar || '';
-
-      if (typedChar !== undefined) {
-        if (expectedChar !== undefined && typedChar === expectedChar) {
-          state = QNA_CHAR_STATES.CORRECT;
-          displayChar = expectedChar;
-        } else {
-          state = QNA_CHAR_STATES.INCORRECT;
-          displayChar = typedChar;
-        }
-      } else {
-        state = QNA_CHAR_STATES.NOT_TYPED;
-        displayChar = expectedChar || '';
+    if (hasError) {
+      // 1. Correct characters before the error
+      for (let i = 0; i < firstMismatchIndex; i += 1) {
+        nodes.push({
+          index: i,
+          state: QNA_CHAR_STATES.CORRECT,
+          displayChar: expectedChars[i],
+          isCurrentBox: false,
+        });
       }
 
-      const isCursor = i === typedChars.length && !isSuccess;
+      // 2. Incorrect typed characters starting at firstMismatchIndex
+      for (let i = firstMismatchIndex; i < typedChars.length; i += 1) {
+        nodes.push({
+          index: i,
+          state: QNA_CHAR_STATES.INCORRECT,
+          displayChar: typedChars[i],
+          isCurrentBox: false,
+        });
+      }
 
-      nodes.push({
-        index: i,
-        state,
-        displayChar,
-        isCursor,
-      });
+      // 3. Remaining expected characters in muted gray
+      for (let i = typedChars.length; i < expectedChars.length; i += 1) {
+        nodes.push({
+          index: i,
+          state: QNA_CHAR_STATES.NOT_TYPED,
+          displayChar: expectedChars[i],
+          isCurrentBox: false,
+        });
+      }
+    } else {
+      // No error
+      // 1. Characters typed correctly so far
+      for (let i = 0; i < typedChars.length; i += 1) {
+        nodes.push({
+          index: i,
+          state: QNA_CHAR_STATES.CORRECT,
+          displayChar: expectedChars[i],
+          isCurrentBox: false,
+        });
+      }
+
+      // 2. Next expected character inside the highlighted box
+      if (currentBoxIndex !== -1) {
+        nodes.push({
+          index: currentBoxIndex,
+          state: QNA_CHAR_STATES.NOT_TYPED,
+          displayChar: expectedChars[currentBoxIndex],
+          isCurrentBox: true,
+        });
+      }
+
+      // 3. Remaining untyped characters after the box
+      const remainderStart =
+        currentBoxIndex !== -1 ? currentBoxIndex + 1 : typedChars.length;
+      for (let i = remainderStart; i < expectedChars.length; i += 1) {
+        nodes.push({
+          index: i,
+          state: QNA_CHAR_STATES.NOT_TYPED,
+          displayChar: expectedChars[i],
+          isCurrentBox: false,
+        });
+      }
     }
 
     return nodes;
@@ -103,6 +154,31 @@ export function QnaSentenceField({
       <View style={styles.sentenceWrapper}>
         <Text style={styles.sentenceParagraph} testID={testID}>
           {characterNodes.map(node => {
+            if (node.isCurrentBox) {
+              const boxChar =
+                node.displayChar === ' ' ? ' ' : node.displayChar;
+              return (
+                <Text
+                  key={`char-${node.index}`}
+                  accessibilityLabel={
+                    node.displayChar === ' '
+                      ? 'Next character: space'
+                      : `Next character: ${node.displayChar}`
+                  }
+                  style={[
+                    styles.charText,
+                    styles.currentBoxText,
+                    {
+                      color: accentColor,
+                      borderColor: accentColor,
+                    },
+                  ]}
+                  testID="qna-current-character">
+                  {boxChar}
+                </Text>
+              );
+            }
+
             let charColor = placeholderColor;
             let charBg = 'transparent';
             let fontWeight = '500';
@@ -125,37 +201,22 @@ export function QnaSentenceField({
                 : node.displayChar;
 
             return (
-              <React.Fragment key={`char-${node.index}`}>
-                {node.isCursor && (
-                  <Text
-                    style={[styles.cursor, {color: accentColor}]}
-                    testID="qna-cursor">
-                    |
-                  </Text>
-                )}
-                <Text
-                  style={[
-                    styles.charText,
-                    {
-                      color: charColor,
-                      backgroundColor: charBg,
-                      fontWeight,
-                      opacity,
-                    },
-                  ]}
-                  testID={`qna-char-${node.index}`}>
-                  {renderChar}
-                </Text>
-              </React.Fragment>
+              <Text
+                key={`char-${node.index}`}
+                style={[
+                  styles.charText,
+                  {
+                    color: charColor,
+                    backgroundColor: charBg,
+                    fontWeight,
+                    opacity,
+                  },
+                ]}
+                testID={`qna-char-${node.index}`}>
+                {renderChar}
+              </Text>
             );
           })}
-          {typedValue.length >= characterNodes.length && !isSuccess && (
-            <Text
-              style={[styles.cursor, {color: accentColor}]}
-              testID="qna-cursor">
-              |
-            </Text>
-          )}
         </Text>
       </View>
 
@@ -209,9 +270,12 @@ const styles = StyleSheet.create({
   charText: {
     borderRadius: 3,
   },
-  cursor: {
+  currentBoxText: {
+    backgroundColor: 'rgba(255, 184, 77, 0.22)',
+    borderRadius: 4,
+    borderWidth: 1.5,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
     lineHeight: 34,
   },
   hiddenInput: {

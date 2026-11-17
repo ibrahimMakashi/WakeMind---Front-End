@@ -29,6 +29,11 @@ class RingingActivity : ReactActivity() {
     )
   }
 
+  override fun onNewIntent(intent: android.content.Intent?) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+  }
+
   override fun onDestroy() {
     if (activeInstance?.get() == this) {
       activeInstance = null
@@ -70,8 +75,27 @@ class RingingActivity : ReactActivity() {
                   AlarmRingtoneService.currentSnoozeCount == 0,
               ) ?: (AlarmRingtoneService.currentSnoozeCount == 0)
 
+          val storedAlarm =
+              if (alarmId.isNotBlank()) AlarmStore(this@RingingActivity).get(alarmId) else null
+          val alarmType =
+              intent?.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
+                  ?: storedAlarm?.alarmType
+                  ?: AlarmDefaults.ALARM_TYPE_NORMAL
+          val ritualText =
+              intent?.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
+                  ?: storedAlarm?.ritualText
+                  ?: ""
+          val repetitionTarget =
+              intent?.getIntExtra(
+                  AlarmIntents.EXTRA_REPETITION_TARGET,
+                  storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET,
+              ) ?: (storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET)
+          val mode =
+              if (alarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL) AlarmIntents.MODE_VISION_RITUAL
+              else AlarmIntents.MODE_ALARM
+
           return Bundle().apply {
-            putString("mode", AlarmIntents.MODE_ALARM)
+            putString("mode", mode)
             putString("alarmId", alarmId)
             putString("occurrenceId", occurrenceId)
             putBoolean("canSnooze", canSnooze)
@@ -81,6 +105,9 @@ class RingingActivity : ReactActivity() {
             putString("puzzleImageType", puzzleImageType)
             putString("difficulty", difficulty)
             putString("sound", sound)
+            putString("alarmType", alarmType)
+            putString("ritualText", ritualText)
+            putInt("repetitionTarget", repetitionTarget)
           }
         }
       }

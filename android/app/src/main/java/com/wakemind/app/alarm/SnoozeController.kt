@@ -105,8 +105,22 @@ internal object SnoozeController {
       // 6. Only after scheduling succeeds, stop current audio and vibration, and finish activity
       AlarmRingtoneService.stop(context)
       RingingActivity.finishActive()
+      AlarmNotifications.showSnoozeNotification(context, record)
+      SnoozeCountdownNotifier.start(context, record)
       Log.i(ALARM_LOG_TAG, "Snooze successfully scheduled for occurrence $occurrenceId at $triggerAtMillis")
       return true
+    }
+  }
+
+  fun cancelSnooze(context: Context, occurrenceId: String) {
+    synchronized(lock) {
+      val snoozeStore = SnoozeStore(context)
+      val record = snoozeStore.get(occurrenceId) ?: return
+      AlarmScheduler.cancelSnooze(context, record.alarmId, occurrenceId)
+      snoozeStore.clear(occurrenceId)
+      SnoozeCountdownNotifier.stop(occurrenceId)
+      AlarmNotifications.cancelSnoozeNotification(context, occurrenceId)
+      Log.i(ALARM_LOG_TAG, "Snooze cancelled for occurrence $occurrenceId")
     }
   }
 
@@ -125,6 +139,8 @@ internal object SnoozeController {
               "Alarm ${record.alarmId} was deleted while snooze was pending; clearing ${record.occurrenceId}",
           )
           AlarmScheduler.cancelSnooze(context, record.alarmId, record.occurrenceId)
+          SnoozeCountdownNotifier.stop(record.occurrenceId)
+          AlarmNotifications.cancelSnoozeNotification(context, record.occurrenceId)
           snoozeStore.clear(record.occurrenceId)
           continue
         }
@@ -132,6 +148,8 @@ internal object SnoozeController {
         if (record.triggerAtMillis > now) {
           try {
             AlarmScheduler.scheduleSnooze(context, record)
+            AlarmNotifications.showSnoozeNotification(context, record)
+            SnoozeCountdownNotifier.start(context, record)
             Log.i(ALARM_LOG_TAG, "Recovered future snooze for ${record.occurrenceId} at ${record.triggerAtMillis}")
           } catch (e: Exception) {
             Log.e(ALARM_LOG_TAG, "Could not reschedule pending snooze for ${record.occurrenceId}", e)
@@ -139,6 +157,8 @@ internal object SnoozeController {
         } else {
           // Missed snooze: handle exactly once without creating duplicate schedules
           snoozeStore.markFired(record.occurrenceId)
+          SnoozeCountdownNotifier.stop(record.occurrenceId)
+          AlarmNotifications.cancelSnoozeNotification(context, record.occurrenceId)
           try {
             AlarmRingtoneService.start(context, alarm, record.occurrenceId, snoozeCount = 1)
             Log.i(ALARM_LOG_TAG, "Recovered expired snooze for ${record.occurrenceId}; ringing now.")

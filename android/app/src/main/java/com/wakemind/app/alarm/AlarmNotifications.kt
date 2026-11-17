@@ -43,6 +43,9 @@ internal object AlarmNotifications {
       occurrenceId: String = "${alarmId}_${triggerAtMillis}",
       canSnooze: Boolean = true,
       sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
+      alarmType: String? = null,
+      ritualText: String? = null,
+      repetitionTarget: Int? = null,
   ): Notification {
     val activityIntent =
         ringingIntent(
@@ -57,6 +60,9 @@ internal object AlarmNotifications {
             occurrenceId,
             canSnooze,
             sound,
+            alarmType,
+            ritualText,
+            repetitionTarget,
         )
     val contentPending =
         PendingIntent.getActivity(
@@ -121,15 +127,19 @@ internal object AlarmNotifications {
       occurrenceId: String? = null,
       canSnooze: Boolean = true,
       sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
+      alarmType: String? = null,
+      ritualText: String? = null,
+      repetitionTarget: Int? = null,
   ): Intent {
-    val storeAlarm =
-        if (puzzleImageId.isNullOrBlank() || difficulty.isNullOrBlank()) AlarmStore(context).get(alarmId)
-        else null
+    val storeAlarm = AlarmStore(context).get(alarmId)
     val finalImageId = puzzleImageId ?: storeAlarm?.puzzleImageId ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID
     val finalImageType = puzzleImageType ?: storeAlarm?.puzzleImageType ?: AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
     val finalDifficulty = difficulty ?: storeAlarm?.difficulty ?: AlarmDefaults.DIFFICULTY_EASY
     val finalSound = if (sound != AlarmDefaults.DEFAULT_ALARM_SOUND_ID) sound else (storeAlarm?.sound ?: sound)
     val finalOccId = occurrenceId ?: "${alarmId}_${triggerAtMillis}"
+    val finalAlarmType = alarmType ?: storeAlarm?.alarmType ?: AlarmDefaults.ALARM_TYPE_NORMAL
+    val finalRitualText = ritualText ?: storeAlarm?.ritualText ?: ""
+    val finalRepetitionTarget = repetitionTarget ?: storeAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET
 
     return Intent(context, RingingActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -143,6 +153,9 @@ internal object AlarmNotifications {
       putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, finalImageType)
       putExtra(AlarmIntents.EXTRA_DIFFICULTY, finalDifficulty)
       putExtra(AlarmIntents.EXTRA_SOUND, finalSound)
+      putExtra(AlarmIntents.EXTRA_ALARM_TYPE, finalAlarmType)
+      putExtra(AlarmIntents.EXTRA_RITUAL_TEXT, finalRitualText)
+      putExtra(AlarmIntents.EXTRA_REPETITION_TARGET, finalRepetitionTarget)
     }
   }
 
@@ -156,5 +169,105 @@ internal object AlarmNotifications {
 
   fun snoozeActionRequestCode(alarmId: String, occurrenceId: String): Int {
     return ("$alarmId:$occurrenceId:snooze_action").hashCode() and 0x7FFFFFFF
+  }
+
+  fun snoozeNotificationId(occurrenceId: String): Int {
+    return ("snooze:$occurrenceId").hashCode() and 0x7FFFFFFF
+  }
+
+  fun formatRemaining(remainingMillis: Long): String {
+    val totalSeconds = Math.max(0L, (remainingMillis + 999L) / 1000L)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
+  }
+
+  fun buildSnoozeNotification(
+      context: Context,
+      record: SnoozeRecord,
+      remainingMillis: Long = record.triggerAtMillis - System.currentTimeMillis(),
+  ): Notification {
+    ensureChannel(context)
+    val timeFormatted = formatRemaining(remainingMillis)
+    val countdownText = "$timeFormatted remaining"
+    val contentText =
+        if (record.label.isNotBlank() && record.label != AlarmDefaults.DEFAULT_LABEL) {
+          "${record.label} • $countdownText"
+        } else {
+          countdownText
+        }
+
+    val openAppIntent =
+        Intent(context, com.wakemind.app.MainActivity::class.java).apply {
+          flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+    val contentPending =
+        PendingIntent.getActivity(
+            context,
+            contentRequestCode(record.alarmId, record.occurrenceId),
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    val stopIntent =
+        Intent(context, AlarmActionReceiver::class.java).apply {
+          action = AlarmIntents.ACTION_CANCEL_SNOOZE
+          putExtra(AlarmIntents.EXTRA_ALARM_ID, record.alarmId)
+          putExtra(AlarmIntents.EXTRA_OCCURRENCE_ID, record.occurrenceId)
+        }
+    val stopPending =
+        PendingIntent.getBroadcast(
+            context,
+            stopActionRequestCode(record.alarmId, record.occurrenceId),
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    return NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(com.wakemind.app.R.drawable.ic_alarm_notification)
+        .setContentTitle("B-Discipline")
+        .setSubText("Alarm snoozed")
+        .setContentText(contentText)
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setOnlyAlertOnce(true)
+        .setUsesChronometer(true)
+        .setChronometerCountDown(true)
+        .setWhen(record.triggerAtMillis)
+        .setContentIntent(contentPending)
+        .addAction(com.wakemind.app.R.drawable.ic_alarm_notification, "STOP", stopPending)
+        .build()
+  }
+
+  fun showSnoozeNotification(context: Context, record: SnoozeRecord) {
+    try {
+      val notification = buildSnoozeNotification(context, record)
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      manager?.notify(snoozeNotificationId(record.occurrenceId), notification)
+    } catch (e: Exception) {
+      android.util.Log.e(ALARM_LOG_TAG, "Failed to show snooze notification for ${record.occurrenceId}", e)
+    }
+  }
+
+  fun updateSnoozeNotification(context: Context, record: SnoozeRecord, remainingMillis: Long) {
+    try {
+      val notification = buildSnoozeNotification(context, record, remainingMillis)
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      manager?.notify(snoozeNotificationId(record.occurrenceId), notification)
+    } catch (e: Exception) {
+      android.util.Log.e(ALARM_LOG_TAG, "Failed to update snooze notification for ${record.occurrenceId}", e)
+    }
+  }
+
+  fun cancelSnoozeNotification(context: Context, occurrenceId: String) {
+    try {
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      manager?.cancel(snoozeNotificationId(occurrenceId))
+    } catch (e: Exception) {
+      android.util.Log.e(ALARM_LOG_TAG, "Failed to cancel snooze notification for $occurrenceId", e)
+    }
   }
 }

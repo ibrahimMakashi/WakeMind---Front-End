@@ -16,4 +16,5 @@
     <color name="wm_picker_clock_face_dark">#151B2A</color>
     <color name="wm_picker_border_dark">#2C3447</color>
     <color name="wm_picker_accent_text">#21180B</color>
+    <color name="ic_launcher_background">#0E1420</color>
 </resources>

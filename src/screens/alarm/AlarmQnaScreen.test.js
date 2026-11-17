@@ -48,7 +48,7 @@ describe('AlarmQnaScreen', () => {
     });
 
     const questionText = renderer.root.findByProps({testID: 'qna-question-text'});
-    expect(questionText.props.children).toBe('What planet do we live on?');
+    expect(questionText.props.children).toBe('What is your vision?');
 
     const input = renderer.root.findByProps({testID: 'qna-text-input'});
     expect(input.props.value).toBe('');
@@ -68,29 +68,29 @@ describe('AlarmQnaScreen', () => {
 
     const input = renderer.root.findByProps({testID: 'qna-text-input'});
 
-    // 1. Lowercase initial letter: "we live on planet Earth." -> should NOT advance
+    // 1. Lowercase initial letter: "to live with discipline and purpose." -> should NOT advance
     act(() => {
-      input.props.onChangeText('we live on planet Earth.');
+      input.props.onChangeText('to live with discipline and purpose.');
     });
     act(() => {
       jest.advanceTimersByTime(500);
     });
     let questionText = renderer.root.findByProps({testID: 'qna-question-text'});
-    expect(questionText.props.children).toBe('What planet do we live on?');
+    expect(questionText.props.children).toBe('What is your vision?');
 
-    // 2. Missing final period: "We live on planet Earth" -> should NOT advance
+    // 2. Missing final period: "To live with discipline and purpose" -> should NOT advance
     act(() => {
-      input.props.onChangeText('We live on planet Earth');
+      input.props.onChangeText('To live with discipline and purpose');
     });
     act(() => {
       jest.advanceTimersByTime(500);
     });
     questionText = renderer.root.findByProps({testID: 'qna-question-text'});
-    expect(questionText.props.children).toBe('What planet do we live on?');
+    expect(questionText.props.children).toBe('What is your vision?');
 
-    // 3. Exact full sentence: "We live on planet Earth."
+    // 3. Exact full sentence: "To live with discipline and purpose."
     act(() => {
-      input.props.onChangeText('We live on planet Earth.');
+      input.props.onChangeText('To live with discipline and purpose.');
     });
 
     // Advance past transition timer
@@ -100,7 +100,7 @@ describe('AlarmQnaScreen', () => {
 
     // Now on Question 2!
     questionText = renderer.root.findByProps({testID: 'qna-question-text'});
-    expect(questionText.props.children).toBe('How many days are there in a week?');
+    expect(questionText.props.children).toBe('Do you really want to achieve your goals?');
     expect(onComplete).not.toHaveBeenCalled();
   });
 
@@ -112,11 +112,11 @@ describe('AlarmQnaScreen', () => {
     });
 
     const fullSentenceAnswers = [
-      'We live on planet Earth.',
-      'There are seven days in a week.',
-      'The opposite of cold is hot.',
-      'The sky is blue on a clear day.',
-      'The number ten comes after nine.',
+      'To live with discipline and purpose.',
+      'Yes, with absolute commitment.',
+      'Yes, action begins right now.',
+      'Focus and execute with no excuses.',
+      'Stronger, disciplined, and victorious.',
     ];
 
     fullSentenceAnswers.forEach(sentence => {
@@ -165,9 +165,9 @@ describe('AlarmQnaScreen', () => {
 
     // Enter correct answer with rapid duplicate events
     act(() => {
-      input.props.onChangeText('We live on planet Earth.');
-      input.props.onChangeText('We live on planet Earth.');
-      input.props.onChangeText('We live on planet Earth.');
+      input.props.onChangeText('To live with discipline and purpose.');
+      input.props.onChangeText('To live with discipline and purpose.');
+      input.props.onChangeText('To live with discipline and purpose.');
     });
 
     act(() => {
@@ -176,6 +176,6 @@ describe('AlarmQnaScreen', () => {
 
     // Should only have advanced to question 2 (index 1), not skipped
     const questionText = renderer.root.findByProps({testID: 'qna-question-text'});
-    expect(questionText.props.children).toBe('How many days are there in a week?');
+    expect(questionText.props.children).toBe('Do you really want to achieve your goals?');
   });
 });

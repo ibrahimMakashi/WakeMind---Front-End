@@ -4,9 +4,23 @@ import {AlarmsProvider} from '../alarms/AlarmsProvider';
 import {boot} from '../constants/theme';
 import {RootNavigator} from '../navigation/RootNavigator';
 import {AlarmRingingScreen} from '../screens/alarm/AlarmRingingScreen';
+import {VisionRitualRingingScreen} from '../screens/vision/VisionRitualRingingScreen';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 
 export default function App(props) {
+  if (
+    (props?.mode === 'vision_ritual' || props?.alarmType === 'vision_ritual') &&
+    props?.alarmId
+  ) {
+    return (
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <VisionRitualRoot {...props} />
+        </ThemeProvider>
+      </SafeAreaProvider>
+    );
+  }
+
   if (props?.mode === 'alarm' && props?.alarmId) {
     return (
       <SafeAreaProvider>
@@ -25,6 +39,30 @@ export default function App(props) {
         </AlarmsProvider>
       </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+function VisionRitualRoot(props) {
+  const theme = useTheme();
+
+  if (!theme.ready || !theme.colors) {
+    return (
+      <View
+        accessibilityLabel="Loading"
+        style={[styles.boot, {backgroundColor: boot.background}]}>
+        <ActivityIndicator color={boot.indicator} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.shell, {backgroundColor: theme.colors.background}]}>
+      <StatusBar
+        barStyle={theme.statusBarStyle}
+        backgroundColor={theme.colors.background}
+      />
+      <VisionRitualRingingScreen {...props} />
+    </View>
   );
 }
 

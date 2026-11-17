@@ -335,6 +335,7 @@ function AlarmEditorForm({alarm}) {
           label={label}
           minute={minute}
           onLabelChange={setLabel}
+          onPeriodChange={setPeriod}
           onPressTime={openTimePicker}
           period={period}
         />

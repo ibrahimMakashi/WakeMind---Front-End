@@ -50,6 +50,18 @@ class AlarmRingtoneService : Service() {
     val sound = intent.getStringExtra(AlarmIntents.EXTRA_SOUND) ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
     val canSnooze = snoozeCount == 0
 
+    val storedAlarm = AlarmStore(this).get(alarmId)
+    val alarmType = intent.getStringExtra(AlarmIntents.EXTRA_ALARM_TYPE)
+        ?: storedAlarm?.alarmType
+        ?: AlarmDefaults.ALARM_TYPE_NORMAL
+    val ritualText = intent.getStringExtra(AlarmIntents.EXTRA_RITUAL_TEXT)
+        ?: storedAlarm?.ritualText
+        ?: ""
+    val repetitionTarget = intent.getIntExtra(
+        AlarmIntents.EXTRA_REPETITION_TARGET,
+        storedAlarm?.repetitionTarget ?: AlarmDefaults.DEFAULT_REPETITION_TARGET,
+    )
+
     promoteToForeground(
         alarmId,
         label,
@@ -61,6 +73,9 @@ class AlarmRingtoneService : Service() {
         occurrenceId,
         canSnooze,
         sound,
+        alarmType,
+        ritualText,
+        repetitionTarget,
     )
     if (isRinging && currentAlarmId == alarmId && currentOccurrenceId == occurrenceId) {
       return START_REDELIVER_INTENT
@@ -96,6 +111,9 @@ class AlarmRingtoneService : Service() {
       occurrenceId: String = "${alarmId}_${triggerAtMillis}",
       canSnooze: Boolean = true,
       sound: String = AlarmDefaults.DEFAULT_ALARM_SOUND_ID,
+      alarmType: String? = null,
+      ritualText: String? = null,
+      repetitionTarget: Int? = null,
   ) {
     AlarmNotifications.ensureChannel(this)
     val notification =
@@ -111,6 +129,9 @@ class AlarmRingtoneService : Service() {
             occurrenceId,
             canSnooze,
             sound,
+            alarmType,
+            ritualText,
+            repetitionTarget,
         )
     val type =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -303,6 +324,9 @@ class AlarmRingtoneService : Service() {
             putExtra(AlarmIntents.EXTRA_PUZZLE_IMAGE_TYPE, alarm.puzzleImageType)
             putExtra(AlarmIntents.EXTRA_DIFFICULTY, alarm.difficulty)
             putExtra(AlarmIntents.EXTRA_SOUND, alarm.sound)
+            putExtra(AlarmIntents.EXTRA_ALARM_TYPE, alarm.alarmType)
+            putExtra(AlarmIntents.EXTRA_RITUAL_TEXT, alarm.ritualText)
+            putExtra(AlarmIntents.EXTRA_REPETITION_TARGET, alarm.repetitionTarget)
           }
       ContextCompat.startForegroundService(context, intent)
     }
@@ -339,6 +363,8 @@ class AlarmRingtoneService : Service() {
       // Occurrence-specific cleanup!
       try {
         SnoozeStore(context).clear(occurrenceId)
+        SnoozeCountdownNotifier.stop(occurrenceId)
+        AlarmNotifications.cancelSnoozeNotification(context, occurrenceId)
       } catch (e: Exception) {
         Log.e(ALARM_LOG_TAG, "Failed to clear snooze store for occurrence $occurrenceId", e)
       }

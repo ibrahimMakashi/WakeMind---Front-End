@@ -12,8 +12,16 @@ export function getAlarms() {
   return requireAndroidModule().getAlarms();
 }
 
+export function getVisionRituals() {
+  return requireAndroidModule().getVisionRituals();
+}
+
 export function saveAlarm(alarm) {
   return requireAndroidModule().saveAlarm(alarm);
+}
+
+export function saveVisionRitual(ritual) {
+  return requireAndroidModule().saveVisionRitual(ritual);
 }
 
 export function setAlarmEnabled(id, enabled) {
@@ -49,6 +57,14 @@ export function dismissAlarmAfterPuzzle(alarmId, occurrenceId) {
     throw new Error('Both alarmId and occurrenceId are strictly required to dismiss an alarm.');
   }
   return requireAndroidModule().dismissAlarmOccurrenceAfterPuzzle(alarmId, occurrenceId);
+}
+
+export function finishRingingActivity() {
+  const mod = requireAndroidModule();
+  if (typeof mod.finishRingingActivity === 'function') {
+    return mod.finishRingingActivity();
+  }
+  return Promise.resolve(true);
 }
 
 export function canSnoozeAlarm(alarmId, occurrenceId) {

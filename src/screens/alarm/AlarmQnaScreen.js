@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AccessibilityInfo,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -35,6 +36,53 @@ export function AlarmQnaScreen({
 
   const isAdvancingRef = useRef(false);
   const advanceTimerRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const questionCardYRef = useRef(140);
+  const isKeyboardOpenRef = useRef(false);
+  const [keyboardPadding, setKeyboardPadding] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      isKeyboardOpenRef.current = true;
+      const kbHeight = e?.endCoordinates?.height || 280;
+      setKeyboardPadding(kbHeight);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: questionCardYRef.current,
+          animated: true,
+        });
+      }, 50);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      isKeyboardOpenRef.current = false;
+      setKeyboardPadding(0);
+      scrollViewRef.current?.scrollTo({
+        y: 0,
+        animated: true,
+      });
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // When question advances, ensure the view is smoothly scrolled to question/typing area if keyboard is open
+  useEffect(() => {
+    if (isKeyboardOpenRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: questionCardYRef.current,
+          animated: true,
+        });
+      }, 50);
+    }
+  }, [currentQuestionIndex]);
 
   const safeQuestions = useMemo(() => {
     if (Array.isArray(questions) && questions.length > 0) {
@@ -113,12 +161,13 @@ export function AlarmQnaScreen({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardContainer}>
         <ScrollView
+          ref={scrollViewRef}
           bounces={false}
           contentContainerStyle={[
             styles.scrollContent,
             {
               paddingTop: insets.top + 16,
-              paddingBottom: Math.max(insets.bottom, 20) + 16,
+              paddingBottom: Math.max(insets.bottom, 20) + 16 + keyboardPadding,
             },
           ]}
           keyboardShouldPersistTaps="always"
@@ -215,6 +264,12 @@ export function AlarmQnaScreen({
 
           {/* Question Card */}
           <View
+            onLayout={(event) => {
+              const layoutY = event.nativeEvent.layout.y;
+              if (layoutY > 0) {
+                questionCardYRef.current = Math.max(0, layoutY - 16);
+              }
+            }}
             style={[
               styles.questionCard,
               {

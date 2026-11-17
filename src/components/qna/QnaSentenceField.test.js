@@ -20,7 +20,7 @@ jest.mock('../../theme/ThemeProvider', () => ({
   }),
 }));
 
-describe('QnaSentenceField Component', () => {
+describe('QnaSentenceField Component with Moving Next-Character Box', () => {
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -29,7 +29,7 @@ describe('QnaSentenceField Component', () => {
     jest.useRealTimers();
   });
 
-  test('renders expected sentence initially as muted gray text', () => {
+  test('initial state: box starts at index 0 containing first expected character W', () => {
     let renderer;
     act(() => {
       renderer = create(
@@ -43,16 +43,15 @@ describe('QnaSentenceField Component', () => {
     const field = renderer.root.findByProps({testID: 'qna-typing-field'});
     expect(field).toBeDefined();
 
-    // Check first character 'W' is muted gray
-    const char0 = renderer.root.findByProps({testID: 'qna-char-0'});
-    expect(char0.props.children).toBe('W');
-    expect(char0.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#687690', opacity: 0.65}),
-      ]),
-    );
+    // The current box is present and contains 'W'
+    const currentBox = renderer.root.findByProps({testID: 'qna-current-character'});
+    expect(currentBox.props.children).toBe('W');
 
-    // Check last character '.' is also muted gray
+    // There should be NO literal '|' cursor
+    const cursor = renderer.root.findAllByProps({testID: 'qna-cursor'});
+    expect(cursor).toHaveLength(0);
+
+    // Remaining characters (e.g. '.' at end) are muted gray
     const charLast = renderer.root.findByProps({testID: 'qna-char-23'});
     expect(charLast.props.children).toBe('.');
     expect(charLast.props.style).toEqual(
@@ -62,116 +61,151 @@ describe('QnaSentenceField Component', () => {
     );
   });
 
-  test('correctly typed characters turn green and remaining characters stay gray', () => {
+  test('moves to next expected character as user types correctly', () => {
     let renderer;
+    const expected = 'We live on planet Earth.';
+
     act(() => {
       renderer = create(
-        <QnaSentenceField
-          expectedAnswer="We live on planet Earth."
-          typedValue="We "
-        />,
+        <QnaSentenceField expectedAnswer={expected} typedValue="" />,
       );
     });
 
-    const char0 = renderer.root.findByProps({testID: 'qna-char-0'});
-    const char1 = renderer.root.findByProps({testID: 'qna-char-1'});
-    const char2 = renderer.root.findByProps({testID: 'qna-char-2'});
-    const char3 = renderer.root.findByProps({testID: 'qna-char-3'});
+    // 1. Initial: box has 'W'
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('W');
 
-    // 'W' -> green
-    expect(char0.props.children).toBe('W');
-    expect(char0.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#4CD964', opacity: 1}),
-      ]),
+    // 2. Typed 'W' -> box moves to 'e'
+    act(() => {
+      renderer.update(
+        <QnaSentenceField expectedAnswer={expected} typedValue="W" />,
+      );
+    });
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('e');
+    // 'W' at index 0 is now green
+    expect(renderer.root.findByProps({testID: 'qna-char-0'}).props.children).toBe('W');
+    expect(renderer.root.findByProps({testID: 'qna-char-0'}).props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({color: '#4CD964'})]),
     );
 
-    // 'e' -> green
-    expect(char1.props.children).toBe('e');
-    expect(char1.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#4CD964', opacity: 1}),
-      ]),
-    );
+    // 3. Typed 'We' -> box moves to space (visually blank space ' ')
+    act(() => {
+      renderer.update(
+        <QnaSentenceField expectedAnswer={expected} typedValue="We" />,
+      );
+    });
+    const spaceBox = renderer.root.findByProps({testID: 'qna-current-character'});
+    expect(spaceBox.props.children).toBe(' ');
+    expect(spaceBox.props.children).not.toContain('·');
+    expect(spaceBox.props.children).not.toContain('.');
+    expect(spaceBox.props.children).not.toContain('•');
+    expect(spaceBox.props.children).not.toContain('_');
 
-    // ' ' -> green
-    expect(char2.props.children).toBe(' ');
-    expect(char2.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#4CD964', opacity: 1}),
-      ]),
-    );
+    // 4. Typed 'We ' -> box moves to 'l'
+    act(() => {
+      renderer.update(
+        <QnaSentenceField expectedAnswer={expected} typedValue="We " />,
+      );
+    });
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('l');
 
-    // 'l' (not typed yet) -> gray
-    expect(char3.props.children).toBe('l');
-    expect(char3.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#687690', opacity: 0.65}),
-      ]),
-    );
+    // 5. Mid sentence: Typed 'We liv' -> box moves to 'e'
+    act(() => {
+      renderer.update(
+        <QnaSentenceField expectedAnswer={expected} typedValue="We liv" />,
+      );
+    });
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('e');
+
+    // 6. Before punctuation: Typed 'We live on planet Earth' -> box moves to '.'
+    act(() => {
+      renderer.update(
+        <QnaSentenceField
+          expectedAnswer={expected}
+          typedValue="We live on planet Earth"
+        />,
+      );
+    });
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('.');
+
+    // 7. Completed answer: Typed full sentence with isSuccess=true -> box disappears
+    act(() => {
+      renderer.update(
+        <QnaSentenceField
+          expectedAnswer={expected}
+          isSuccess={true}
+          typedValue={expected}
+        />,
+      );
+    });
+    const remainingBoxes = renderer.root.findAllByProps({
+      testID: 'qna-current-character',
+    });
+    expect(remainingBoxes).toHaveLength(0);
   });
 
-  test('incorrect character displays in red with error highlight', () => {
+  test('incorrect character displays in red and backspace restores expected character box', () => {
     let renderer;
+    const expected = 'We live on planet Earth.';
+
     act(() => {
       renderer = create(
-        <QnaSentenceField
-          expectedAnswer="We live on planet Earth."
-          typedValue="We z"
-        />,
+        <QnaSentenceField expectedAnswer={expected} typedValue="We l" />,
       );
     });
 
-    const char3 = renderer.root.findByProps({testID: 'qna-char-3'});
+    // Before error: box displays 'i'
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('i');
 
-    // Expected was 'l', user typed 'z' -> displayed as 'z' in red
-    expect(char3.props.children).toBe('z');
-    expect(char3.props.style).toEqual(
+    // User types 'x' instead of 'i'
+    act(() => {
+      renderer.update(
+        <QnaSentenceField expectedAnswer={expected} typedValue="We lx" />,
+      );
+    });
+
+    // The wrong character 'x' is rendered in red at index 4
+    const wrongChar = renderer.root.findByProps({testID: 'qna-char-4'});
+    expect(wrongChar.props.children).toBe('x');
+    expect(wrongChar.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           color: '#E06B7A',
           backgroundColor: 'rgba(224, 107, 122, 0.24)',
-          opacity: 1,
         }),
       ]),
     );
-  });
 
-  test('backspace removes incorrect character and restores expected character as gray', () => {
-    let renderer;
-    act(() => {
-      renderer = create(
-        <QnaSentenceField
-          expectedAnswer="We live on planet Earth."
-          typedValue="We z"
-        />,
-      );
-    });
+    // Box does NOT advance to 'v'; normal box is hidden while error is active
+    expect(
+      renderer.root.findAllByProps({testID: 'qna-current-character'}),
+    ).toHaveLength(0);
 
-    // Check wrong character is 'z'
-    expect(renderer.root.findByProps({testID: 'qna-char-3'}).props.children).toBe('z');
-
-    // User backspaces 'z' -> typedValue becomes "We "
+    // User presses Backspace -> removes 'x'
     act(() => {
       renderer.update(
-        <QnaSentenceField
-          expectedAnswer="We live on planet Earth."
-          typedValue="We "
-        />,
+        <QnaSentenceField expectedAnswer={expected} typedValue="We l" />,
       );
     });
 
-    // Now char 3 restores to expected 'l' in gray
-    const restoredChar = renderer.root.findByProps({testID: 'qna-char-3'});
-    expect(restoredChar.props.children).toBe('l');
-    expect(restoredChar.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#687690', opacity: 0.65}),
-      ]),
-    );
+    // Expected 'i' box is restored!
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('i');
   });
 
-  test('case sensitivity: lowercase typed character against uppercase expected is incorrect', () => {
+  test('case sensitivity: lowercase w against uppercase W displays as red error', () => {
     let renderer;
     act(() => {
       renderer = create(
@@ -182,56 +216,72 @@ describe('QnaSentenceField Component', () => {
       );
     });
 
-    const char0 = renderer.root.findByProps({testID: 'qna-char-0'});
-    // Expected 'W', typed 'w' -> incorrect (red)
-    expect(char0.props.children).toBe('w');
-    expect(char0.props.style).toEqual(
+    // First character was expected 'W', typed 'w' -> displayed in red
+    const wrongW = renderer.root.findByProps({testID: 'qna-char-0'});
+    expect(wrongW.props.children).toBe('w');
+    expect(wrongW.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({color: '#E06B7A'}),
       ]),
     );
   });
 
-  test('punctuation is required: final period matches when typed', () => {
+  test('space guidance: visually indicates space with blank box (no dot) and requires real space character', () => {
     let renderer;
-    const fullSentence = 'We live on planet Earth.';
-    const almostDone = 'We live on planet Earth';
-
     act(() => {
       renderer = create(
         <QnaSentenceField
-          expectedAnswer={fullSentence}
-          typedValue={almostDone}
+          expectedAnswer="We live on planet Earth."
+          typedValue="We"
         />,
       );
     });
 
-    // Period is at index 23, still gray
-    const periodChar = renderer.root.findByProps({testID: 'qna-char-23'});
-    expect(periodChar.props.children).toBe('.');
-    expect(periodChar.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({color: '#687690', opacity: 0.65}),
-      ]),
-    );
+    // Current box shows blank space (no dot, no bullet, no underscore)
+    const spaceBox = renderer.root.findByProps({testID: 'qna-current-character'});
+    expect(spaceBox.props.children).toBe(' ');
+    expect(spaceBox.props.children).not.toContain('·');
+    expect(spaceBox.props.children).not.toContain('.');
+    expect(spaceBox.props.children).not.toContain('•');
+    expect(spaceBox.props.children).not.toContain('_');
 
-    // Now type the period
+    // Now type an actual space ' '
     act(() => {
       renderer.update(
         <QnaSentenceField
-          expectedAnswer={fullSentence}
-          typedValue={fullSentence}
+          expectedAnswer="We live on planet Earth."
+          typedValue="We "
         />,
       );
     });
 
-    // Period is now green!
-    const completedPeriod = renderer.root.findByProps({testID: 'qna-char-23'});
-    expect(completedPeriod.props.children).toBe('.');
-    expect(completedPeriod.props.style).toEqual(
+    // Space character at index 2 is now correctly typed (green)
+    const spaceChar = renderer.root.findByProps({testID: 'qna-char-2'});
+    expect(spaceChar.props.children).toBe(' ');
+    expect(spaceChar.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({color: '#4CD964'}),
       ]),
     );
+
+    // Next box moved to 'l'
+    expect(
+      renderer.root.findByProps({testID: 'qna-current-character'}).props.children,
+    ).toBe('l');
+  });
+
+  test('no literal cursor | exists anywhere in output', () => {
+    let renderer;
+    act(() => {
+      renderer = create(
+        <QnaSentenceField
+          expectedAnswer="We live on planet Earth."
+          typedValue="We live"
+        />,
+      );
+    });
+
+    const cursors = renderer.root.findAllByProps({testID: 'qna-cursor'});
+    expect(cursors).toHaveLength(0);
   });
 });

@@ -105,6 +105,9 @@ class AlarmReceiver : BroadcastReceiver() {
         return
       }
 
+      SnoozeCountdownNotifier.stop(occurrenceId)
+      AlarmNotifications.cancelSnoozeNotification(context, occurrenceId)
+
       try {
         AlarmRingtoneService.start(context, alarm, occurrenceId, snoozeCount = 1)
         Log.i(ALARM_LOG_TAG, "Snooze alarm $alarmId ($occurrenceId) successfully started ringing with snoozeCount=1.")

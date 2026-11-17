@@ -5,6 +5,7 @@ internal object AlarmIntents {
   const val ACTION_START = "com.wakemind.app.alarm.START"
   const val ACTION_STOP = "com.wakemind.app.alarm.STOP"
   const val ACTION_SNOOZE = "com.wakemind.app.alarm.SNOOZE"
+  const val ACTION_CANCEL_SNOOZE = "com.wakemind.app.alarm.CANCEL_SNOOZE"
   const val EXTRA_ALARM_ID = "alarmId"
   const val EXTRA_OCCURRENCE_ID = "occurrenceId"
   const val EXTRA_IS_SNOOZE = "isSnooze"
@@ -18,4 +19,10 @@ internal object AlarmIntents {
   const val EXTRA_SOUND = "sound"
   const val EXTRA_MODE = "mode"
   const val MODE_ALARM = "alarm"
+  const val MODE_VISION_RITUAL = "vision_ritual"
+  const val EXTRA_ALARM_TYPE = "alarmType"
+  const val EXTRA_RITUAL_TEXT = "ritualText"
+  const val EXTRA_REPETITION_TARGET = "repetitionTarget"
+  const val ALARM_TYPE_NORMAL = "normal"
+  const val ALARM_TYPE_VISION_RITUAL = "vision_ritual"
 }

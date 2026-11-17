@@ -63,7 +63,7 @@ export function buildSavePayload({
     id: editing ? alarm.id : undefined,
     hour: to24Hour(hour12, period),
     minute,
-    enabled: editing ? alarm.enabled : true,
+    enabled: true,
     vibrate,
     label: label.trim(),
     puzzleImageId: puzzleImageId || alarm?.puzzleImageId || DEFAULT_PUZZLE_IMAGE_ID,

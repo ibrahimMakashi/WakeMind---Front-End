@@ -31,10 +31,82 @@ class AlarmModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun getAlarms(promise: Promise) {
     try {
-      promise.resolve(alarmsToArray(AlarmStore(reactApplicationContext).list()))
+      val normalAlarms =
+          AlarmStore(reactApplicationContext).list().filter {
+            it.alarmType != AlarmDefaults.ALARM_TYPE_VISION_RITUAL
+          }
+      promise.resolve(alarmsToArray(normalAlarms))
     } catch (error: Exception) {
       Log.e(ALARM_LOG_TAG, "Could not read alarms.", error)
       promise.reject("ALARM_STORE_ERROR", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun getVisionRituals(promise: Promise) {
+    try {
+      val rituals =
+          AlarmStore(reactApplicationContext).list().filter {
+            it.alarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL
+          }
+      promise.resolve(alarmsToArray(rituals))
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not read vision rituals.", error)
+      promise.reject("ALARM_STORE_ERROR", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun saveVisionRitual(payload: ReadableMap, promise: Promise) {
+    try {
+      val rawRitualText = optionalString(payload, "ritualText") ?: ""
+      if (rawRitualText.trim().isEmpty()) {
+        throw IllegalArgumentException("Vision text cannot be empty.")
+      }
+      val rawRepetitionTarget =
+          if (payload.hasKey("repetitionTarget")) payload.getInt("repetitionTarget")
+          else AlarmDefaults.DEFAULT_REPETITION_TARGET
+      if (rawRepetitionTarget < 1) {
+        throw IllegalArgumentException("Repetition target must be at least 1.")
+      }
+      val rawRepeatDays =
+          if (payload.hasKey("repeatDays") && !payload.isNull("repeatDays")) {
+            val array = payload.getArray("repeatDays")
+            val list = mutableListOf<String>()
+            if (array != null) {
+              for (i in 0 until array.size()) {
+                val d = array.getString(i)
+                if (d != null) {
+                  list.add(d)
+                }
+              }
+            }
+            AlarmTime.normalizeRepeatDays(list)
+          } else {
+            null
+          }
+      val rawSound = optionalString(payload, "alarmSoundId") ?: optionalString(payload, "sound")
+      val saved =
+          AlarmController.saveVisionRitual(
+              reactApplicationContext,
+              id = optionalString(payload, "id"),
+              hour = requiredInt(payload, "hour"),
+              minute = requiredInt(payload, "minute"),
+              enabled = if (payload.hasKey("enabled")) payload.getBoolean("enabled") else true,
+              vibrate = if (payload.hasKey("vibrate")) payload.getBoolean("vibrate") else true,
+              ritualText = rawRitualText,
+              repetitionTarget = rawRepetitionTarget,
+              repeatDays = rawRepeatDays,
+              sound = rawSound,
+          )
+      promise.resolve(alarmToMap(saved))
+    } catch (error: AlarmScheduleException) {
+      promise.reject(errorCode(error), error.message, error)
+    } catch (error: IllegalArgumentException) {
+      promise.reject("ALARM_VALIDATION", error.message, error)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not save vision ritual.", error)
+      promise.reject("ALARM_SAVE_FAILED", error.message, error)
     }
   }
 
@@ -165,15 +237,23 @@ class AlarmModule(reactContext: ReactApplicationContext) :
         throw IllegalArgumentException("Alarm ID and Occurrence ID cannot be empty.")
       }
       val dismissed = AlarmRingtoneService.dismissAfterPuzzle(reactApplicationContext, alarmId, occurrenceId)
-      if (dismissed) {
-        RingingActivity.finishActive()
-      }
       promise.resolve(dismissed)
     } catch (error: IllegalArgumentException) {
       promise.reject("ALARM_VALIDATION", error.message, error)
     } catch (error: Exception) {
       Log.e(ALARM_LOG_TAG, "Could not dismiss alarm $alarmId ($occurrenceId).", error)
       promise.reject("ALARM_DISMISS_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun finishRingingActivity(promise: Promise) {
+    try {
+      RingingActivity.finishActive()
+      promise.resolve(true)
+    } catch (error: Exception) {
+      Log.e(ALARM_LOG_TAG, "Could not finish ringing activity.", error)
+      promise.resolve(false)
     }
   }
 
@@ -490,6 +570,9 @@ class AlarmModule(reactContext: ReactApplicationContext) :
     val repeatDaysArray = Arguments.createArray()
     alarm.repeatDays.forEach { day -> repeatDaysArray.pushString(day) }
     map.putArray("repeatDays", repeatDaysArray)
+    map.putString("alarmType", alarm.alarmType)
+    map.putString("ritualText", alarm.ritualText)
+    map.putInt("repetitionTarget", alarm.repetitionTarget)
     return map
   }
 

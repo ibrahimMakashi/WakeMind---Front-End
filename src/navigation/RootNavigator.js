@@ -7,9 +7,9 @@ import {AppIcon} from '../components/AppIcon';
 import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
 import {ImageEditorScreen} from '../screens/alarm/ImageEditorScreen';
 import {AlarmsScreen} from '../screens/AlarmsScreen';
-import {JournalScreen} from '../screens/JournalScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
 import {PuzzleScreen} from '../screens/PuzzleScreen';
+import {VisionRitualEditorScreen} from '../screens/vision/VisionRitualEditorScreen';
 import {VisionScreen} from '../screens/VisionScreen';
 import {motionDuration} from '../theme/motion';
 import {useTheme} from '../theme/ThemeProvider';
@@ -24,10 +24,6 @@ function AlarmsTabIcon({color, size}) {
 
 function VisionTabIcon({color, size}) {
   return <AppIcon name="star-four-points-outline" color={color} size={size || 22} />;
-}
-
-function JournalTabIcon({color, size}) {
-  return <AppIcon name="book-open-variant" color={color} size={size || 22} />;
 }
 
 function ProfileTabIcon({color, size}) {
@@ -85,6 +81,14 @@ export function RootNavigator() {
             animationDuration: motionDuration(reducedMotion, 180),
           }}
         />
+        <Stack.Screen
+          name="VisionRitualEditor"
+          component={VisionRitualEditorScreen}
+          options={{
+            animation: reducedMotion ? 'none' : 'slide_from_right',
+            animationDuration: motionDuration(reducedMotion, 180),
+          }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -127,14 +131,6 @@ function MainTabs() {
         options={{
           tabBarAccessibilityLabel: 'Vision',
           tabBarIcon: VisionTabIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Journal"
-        component={JournalScreen}
-        options={{
-          tabBarAccessibilityLabel: 'Journal',
-          tabBarIcon: JournalTabIcon,
         }}
       />
       <Tab.Screen

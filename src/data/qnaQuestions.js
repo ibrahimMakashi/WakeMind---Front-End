@@ -1,27 +1,27 @@
 export const DEFAULT_QNA_QUESTIONS = [
   {
     id: 'q1',
-    question: 'What planet do we live on?',
-    answer: 'We live on planet Earth.',
+    question: 'What is your vision?',
+    answer: 'To live with discipline and purpose.',
   },
   {
     id: 'q2',
-    question: 'How many days are there in a week?',
-    answer: 'There are seven days in a week.',
+    question: 'Do you really want to achieve your goals?',
+    answer: 'Yes, with absolute commitment.',
   },
   {
     id: 'q3',
-    question: 'What is the opposite of cold?',
-    answer: 'The opposite of cold is hot.',
+    question: 'Did you start working on it?',
+    answer: 'Yes, action begins right now.',
   },
   {
     id: 'q4',
-    question: 'What color is the sky on a clear day?',
-    answer: 'The sky is blue on a clear day.',
+    question: 'What are your actions for today?',
+    answer: 'Focus and execute with no excuses.',
   },
   {
     id: 'q5',
-    question: 'What comes after nine?',
-    answer: 'The number ten comes after nine.',
+    question: 'How do you want to see yourself in the next 6 months?',
+    answer: 'Stronger, disciplined, and victorious.',
   },
 ];

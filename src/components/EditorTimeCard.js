@@ -16,56 +16,66 @@ export function EditorTimeCard({
   label,
   onLabelChange,
   onPressTime,
+  onPeriodChange,
   disabled,
 }) {
   const {colors, typography, radius} = useTheme();
 
   return (
     <SurfaceCard style={[styles.card, {borderRadius: radius.lg}]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Alarm time ${pad2(hour12)} ${pad2(minute)} ${period}. Tap to change.`}
-        accessibilityState={{disabled}}
-        disabled={disabled}
-        onPress={onPressTime}
-        style={({pressed}) => [styles.timeRow, pressed && !disabled && styles.pressed]}>
-        {/* Hours Block */}
-        <View style={styles.fieldCol}>
-          <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-            <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
-              {pad2(hour12)}
+      <View style={styles.timeRow}>
+        {/* Hours & Minutes clickable block to open Clock Picker */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Alarm time ${pad2(hour12)} ${pad2(minute)}. Tap to change.`}
+          accessibilityState={{disabled}}
+          disabled={disabled}
+          onPress={onPressTime}
+          style={({pressed}) => [styles.digitsGroup, pressed && !disabled && styles.pressed]}>
+          {/* Hours Block */}
+          <View style={styles.fieldCol}>
+            <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
+              <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
+                {pad2(hour12)}
+              </Text>
+            </View>
+            <Text style={[typography.cardHeading, styles.fieldLabel, {color: colors.muted}]}>
+              HOURS
             </Text>
           </View>
-          <Text style={[typography.cardHeading, styles.fieldLabel, {color: colors.muted}]}>
-            HOURS
-          </Text>
-        </View>
 
-        {/* Colon */}
-        <View style={styles.colon}>
-          <View style={[styles.dot, {backgroundColor: colors.accent}]} />
-          <View style={[styles.dot, {backgroundColor: colors.accent}]} />
-        </View>
+          {/* Colon */}
+          <View style={styles.colon}>
+            <View style={[styles.dot, {backgroundColor: colors.accent}]} />
+            <View style={[styles.dot, {backgroundColor: colors.accent}]} />
+          </View>
 
-        {/* Minutes Block */}
-        <View style={styles.fieldCol}>
-          <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-            <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
-              {pad2(minute)}
+          {/* Minutes Block */}
+          <View style={styles.fieldCol}>
+            <View style={[styles.block, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
+              <Text style={[typography.editorTimeBlock, styles.timeText, {color: colors.text}]}>
+                {pad2(minute)}
+              </Text>
+            </View>
+            <Text style={[typography.cardHeading, styles.fieldLabel, {color: colors.muted}]}>
+              MINUTES
             </Text>
           </View>
-          <Text style={[typography.cardHeading, styles.fieldLabel, {color: colors.muted}]}>
-            MINUTES
-          </Text>
-        </View>
+        </Pressable>
 
-        {/* AM / PM Toggle Column */}
+        {/* AM / PM Toggle Column — directly toggles AM <-> PM without opening clock popup */}
         <View style={styles.periodWrapper}>
           <View style={[styles.periodCol, {backgroundColor: colors.surfaceDeep, borderRadius: radius.md}]}>
-            <View
-              style={[
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select AM"
+              accessibilityState={{selected: period === 'AM', disabled}}
+              disabled={disabled}
+              onPress={() => onPeriodChange?.('AM')}
+              style={({pressed}) => [
                 styles.periodHalf,
                 period === 'AM' && [styles.periodActive, {backgroundColor: colors.accent, borderRadius: radius.sm}],
+                pressed && !disabled && styles.pressed,
               ]}>
               <Text
                 style={[
@@ -75,11 +85,17 @@ export function EditorTimeCard({
                 ]}>
                 AM
               </Text>
-            </View>
-            <View
-              style={[
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select PM"
+              accessibilityState={{selected: period === 'PM', disabled}}
+              disabled={disabled}
+              onPress={() => onPeriodChange?.('PM')}
+              style={({pressed}) => [
                 styles.periodHalf,
                 period === 'PM' && [styles.periodActive, {backgroundColor: colors.accent, borderRadius: radius.sm}],
+                pressed && !disabled && styles.pressed,
               ]}>
               <Text
                 style={[
@@ -89,14 +105,14 @@ export function EditorTimeCard({
                 ]}>
                 PM
               </Text>
-            </View>
+            </Pressable>
           </View>
           {/* Spacer to align with HOURS/MINUTES labels */}
           <Text style={[typography.cardHeading, styles.fieldLabel, styles.invisibleLabel]}>
             PER
           </Text>
         </View>
-      </Pressable>
+      </View>
 
       <View style={[styles.divider, {backgroundColor: colors.border}]} />
 
@@ -128,6 +144,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     paddingVertical: spacing.xs,
+  },
+  digitsGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   fieldCol: {
     alignItems: 'center',

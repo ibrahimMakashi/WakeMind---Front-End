@@ -106,6 +106,97 @@ internal object AlarmController {
     return alarm
   }
 
+  fun saveVisionRitual(
+      context: Context,
+      id: String?,
+      hour: Int,
+      minute: Int,
+      enabled: Boolean,
+      vibrate: Boolean,
+      ritualText: String,
+      repetitionTarget: Int,
+      repeatDays: List<String>? = null,
+      sound: String? = null,
+  ): StoredAlarm {
+    val store = AlarmStore(context)
+    val existing = if (id.isNullOrBlank()) null else store.get(id)
+    if (!id.isNullOrBlank() && existing == null) {
+      throw IllegalArgumentException("Vision ritual not found.")
+    }
+    if (existing == null) {
+      val count = store.list().count { it.alarmType == AlarmDefaults.ALARM_TYPE_VISION_RITUAL }
+      if (count >= AlarmDefaults.MAX_VISION_RITUALS) {
+        throw IllegalArgumentException("Maximum of ${AlarmDefaults.MAX_VISION_RITUALS} Vision Ritual alarms reached.")
+      }
+    }
+    if (ritualText.trim().isEmpty()) {
+      throw IllegalArgumentException("Vision text cannot be empty.")
+    }
+    val target = repetitionTarget.coerceAtLeast(1)
+    val now = System.currentTimeMillis()
+    val finalRepeatDays =
+        if (repeatDays != null) {
+          AlarmTime.normalizeRepeatDays(repeatDays)
+        } else {
+          existing?.repeatDays ?: emptyList()
+        }
+    val repeatType =
+        if (finalRepeatDays.isNotEmpty()) AlarmDefaults.REPEAT_WEEKLY
+        else AlarmDefaults.REPEAT_ONCE
+
+    val nextTrigger =
+        if (finalRepeatDays.isNotEmpty()) {
+          AlarmTime.nextWeeklyTriggerMillis(
+              hour,
+              minute,
+              finalRepeatDays,
+              now,
+              TimeZone.getDefault(),
+          )
+        } else {
+          AlarmTime.nextClockTriggerMillis(hour, minute, now, TimeZone.getDefault())
+        }
+
+    val finalSound =
+        if (!sound.isNullOrBlank()) {
+          sound
+        } else {
+          existing?.sound ?: AlarmDefaults.DEFAULT_ALARM_SOUND_ID
+        }
+
+    val alarm =
+        StoredAlarm(
+            id = existing?.id ?: UUID.randomUUID().toString(),
+            hour = hour,
+            minute = minute,
+            enabled = enabled,
+            vibrate = vibrate,
+            label = "Vision Ritual",
+            repeat = repeatType,
+            difficulty = AlarmDefaults.DIFFICULTY_EASY,
+            sound = finalSound,
+            triggerAtMillis = nextTrigger,
+            createdAtMillis = existing?.createdAtMillis ?: now,
+            repeatDays = finalRepeatDays,
+            alarmType = AlarmDefaults.ALARM_TYPE_VISION_RITUAL,
+            ritualText = ritualText.trim(),
+            repetitionTarget = target,
+        )
+    store.upsert(alarm)
+    try {
+      AlarmScheduler.apply(context, alarm)
+    } catch (error: Exception) {
+      if (existing == null) {
+        store.delete(alarm.id)
+      } else {
+        store.upsert(existing)
+        AlarmScheduler.apply(context, existing)
+      }
+      throw error
+    }
+    return alarm
+  }
+
   fun scheduleTestAlarm(context: Context, offsetSeconds: Int): StoredAlarm {
     if (offsetSeconds !in
         AlarmDefaults.MIN_TEST_OFFSET_SECONDS..AlarmDefaults.MAX_TEST_OFFSET_SECONDS) {
@@ -147,6 +238,16 @@ internal object AlarmController {
   fun setEnabled(context: Context, id: String, enabled: Boolean): StoredAlarm {
     val store = AlarmStore(context)
     val existing = store.get(id) ?: throw IllegalArgumentException("Alarm not found.")
+    if (!enabled) {
+      val snoozeStore = SnoozeStore(context)
+      val pending = snoozeStore.getPendingForAlarm(id)
+      if (pending != null) {
+        AlarmScheduler.cancelSnooze(context, id, pending.occurrenceId)
+        SnoozeCountdownNotifier.stop(pending.occurrenceId)
+        AlarmNotifications.cancelSnoozeNotification(context, pending.occurrenceId)
+      }
+      snoozeStore.clearForAlarm(id)
+    }
     val updated =
         if (enabled) {
           val nextTrigger =
@@ -189,6 +290,8 @@ internal object AlarmController {
     val pending = snoozeStore.getPendingForAlarm(id)
     if (pending != null) {
       AlarmScheduler.cancelSnooze(context, id, pending.occurrenceId)
+      SnoozeCountdownNotifier.stop(pending.occurrenceId)
+      AlarmNotifications.cancelSnoozeNotification(context, pending.occurrenceId)
     }
     snoozeStore.clearForAlarm(id)
     val removed = AlarmStore(context).delete(id)

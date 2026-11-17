@@ -18,6 +18,9 @@ internal data class StoredAlarm(
     val puzzleImageId: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_ID,
     val puzzleImageType: String = AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE,
     val repeatDays: List<String> = emptyList(),
+    val alarmType: String = AlarmDefaults.ALARM_TYPE_NORMAL,
+    val ritualText: String = "",
+    val repetitionTarget: Int = AlarmDefaults.DEFAULT_REPETITION_TARGET,
 ) {
   fun toJson(): JSONObject {
     val normalized =
@@ -44,6 +47,9 @@ internal data class StoredAlarm(
     json.put("puzzleImageId", puzzleImageId)
     json.put("puzzleImageType", puzzleImageType)
     json.put("repeatDays", daysArray)
+    json.put("alarmType", alarmType)
+    json.put("ritualText", ritualText)
+    json.put("repetitionTarget", repetitionTarget)
     return json
   }
 
@@ -80,6 +86,13 @@ internal data class StoredAlarm(
             emptyList()
           }
 
+      val alarmType =
+          json.optString("alarmType", AlarmDefaults.ALARM_TYPE_NORMAL).takeIf { !it.isNullOrBlank() }
+              ?: AlarmDefaults.ALARM_TYPE_NORMAL
+      val ritualText = json.optString("ritualText", "")
+      val repetitionTarget =
+          json.optInt("repetitionTarget", AlarmDefaults.DEFAULT_REPETITION_TARGET).coerceAtLeast(1)
+
       return StoredAlarm(
           id = requiredString(json, "id"),
           hour = requiredInt(json, "hour"),
@@ -100,6 +113,9 @@ internal data class StoredAlarm(
               if (rawImageType.isNullOrBlank()) AlarmDefaults.DEFAULT_PUZZLE_IMAGE_TYPE
               else rawImageType,
           repeatDays = repeatDaysList,
+          alarmType = alarmType,
+          ritualText = ritualText,
+          repetitionTarget = repetitionTarget,
       )
     }
 
