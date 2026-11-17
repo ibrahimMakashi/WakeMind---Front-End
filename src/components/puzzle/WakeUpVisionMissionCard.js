@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   previewContainer: {
-    aspectRatio: 16 / 10,
+    aspectRatio: 1,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',

@@ -2,18 +2,17 @@ import {useCallback, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import packageJson from '../../package.json';
 import {useAlarms} from '../alarms/AlarmsProvider';
 import {AppIcon} from '../components/AppIcon';
 import {BrandHeader} from '../components/BrandHeader';
 import {CapabilityNotices} from '../components/CapabilityNotices';
-import {PrimaryButton} from '../components/PrimaryButton';
 import {ScreenContainer} from '../components/ScreenContainer';
 import {SurfaceCard} from '../components/SurfaceCard';
-import {TEST_ALARM_OFFSET_SECONDS} from '../constants/alarm';
 import {spacing} from '../constants/theme';
-import {scheduleTestAlarm} from '../services/alarmService';
+import {MAX_VISION_RITUALS, useVisionRituals} from '../hooks/useVisionRituals';
 import {useTheme} from '../theme/ThemeProvider';
-import {formatClock} from '../utils/time';
+import {formatAlarmListTime, nextAlarm, relativeDayLabel} from '../utils/time';
 
 const OPTIONS = [
   {
@@ -37,11 +36,11 @@ const OPTIONS = [
 ];
 
 export function ProfileScreen() {
-  const {colors, mode, setThemeMode, typography} = useTheme();
+  const {colors, mode, radius, setThemeMode, typography} = useTheme();
   const insets = useSafeAreaInsets();
-  const {capability, loadError, busy, reload, run} = useAlarms();
+  const {alarms, capability, loadError, busy, reload} = useAlarms();
+  const {rituals, reload: reloadRituals} = useVisionRituals();
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
   useFocusEffect(
@@ -49,7 +48,10 @@ export function ProfileScreen() {
       reload().catch(refreshError => {
         setError(refreshError.message || 'Alarms could not be loaded.');
       });
-    }, [reload]),
+      if (reloadRituals) {
+        reloadRituals().catch(() => {});
+      }
+    }, [reload, reloadRituals]),
   );
 
   async function onSelect(nextMode) {
@@ -67,32 +69,156 @@ export function ProfileScreen() {
     }
   }
 
-  async function runTestAlarm() {
-    setError('');
-    setMessage('');
-    try {
-      const result = await run(async () => {
-        const saved = await scheduleTestAlarm(TEST_ALARM_OFFSET_SECONDS);
-        const clock = formatClock(saved.hour, saved.minute);
-        return `Test alarm set for ${clock.hourText}:${clock.minuteText} ${clock.period}. You can leave the app.`;
-      });
-      if (typeof result === 'string') {
-        setMessage(result);
-      }
-    } catch (actionError) {
-      setError(actionError.message || 'Something went wrong.');
-    }
-  }
+  const activeCount = alarms.filter(a => a.enabled).length;
+  const inactiveCount = alarms.filter(a => !a.enabled).length;
+  const nextUpcoming = nextAlarm(alarms);
+  const configuredRituals = rituals.length;
+
+  const allPermissionsGranted =
+    capability &&
+    capability.exactAlarm !== 'needsScheduleExactAlarmGrant' &&
+    capability.exactAlarm !== 'unavailable' &&
+    capability.fullScreenIntent !== 'needsSettings' &&
+    capability.notifications !== 'denied';
 
   return (
     <ScreenContainer style={styles.screen} edges={[]}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          {paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.xl},
+          {
+            paddingTop: insets.top + spacing.sm,
+            paddingBottom: insets.bottom + spacing.xl,
+          },
         ]}
         showsVerticalScrollIndicator={false}>
         <BrandHeader subtitle="PROFILE" />
+
+        {/* 1. DISCIPLINE & ALARM OVERVIEW */}
+        <Text style={[typography.sectionLabel, styles.section, {color: colors.muted}]}>
+          DISCIPLINE OVERVIEW
+        </Text>
+
+        <View style={styles.metricsGrid}>
+          <SurfaceCard
+            accessibilityLabel={`Active alarms: ${activeCount}`}
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+              },
+            ]}>
+            <View style={styles.metricIconWrap}>
+              <AppIcon name="alarm-check" color={colors.accent} size={20} />
+            </View>
+            <Text style={[typography.statValue, styles.metricValue, {color: colors.text}]}>
+              {activeCount}
+            </Text>
+            <Text style={[typography.caption, styles.metricLabel, {color: colors.muted}]}>
+              Active Alarms
+            </Text>
+          </SurfaceCard>
+
+          <SurfaceCard
+            accessibilityLabel={`Inactive alarms: ${inactiveCount}`}
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+              },
+            ]}>
+            <View style={styles.metricIconWrap}>
+              <AppIcon name="alarm-off" color={colors.muted} size={20} />
+            </View>
+            <Text style={[typography.statValue, styles.metricValue, {color: colors.text}]}>
+              {inactiveCount}
+            </Text>
+            <Text style={[typography.caption, styles.metricLabel, {color: colors.muted}]}>
+              Inactive
+            </Text>
+          </SurfaceCard>
+
+          <SurfaceCard
+            accessibilityLabel={`Vision rituals: ${configuredRituals} of ${MAX_VISION_RITUALS} configured`}
+            style={[
+              styles.metricCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+              },
+            ]}>
+            <View style={styles.metricIconWrap}>
+              <AppIcon name="star-four-points-outline" color={colors.accent} size={20} />
+            </View>
+            <Text style={[typography.statValue, styles.metricValue, {color: colors.accent}]}>
+              {configuredRituals}/{MAX_VISION_RITUALS}
+            </Text>
+            <Text style={[typography.caption, styles.metricLabel, {color: colors.muted}]}>
+              Vision Rituals
+            </Text>
+          </SurfaceCard>
+        </View>
+
+        {/* Next Scheduled Alarm Card */}
+        <SurfaceCard
+          style={[
+            styles.nextAlarmCard,
+            {
+              backgroundColor: colors.surfaceRaised,
+              borderColor: colors.borderSubtle || colors.border,
+              borderRadius: radius.md,
+            },
+          ]}>
+          <View style={styles.nextAlarmHeader}>
+            <View style={styles.nextAlarmHeaderLeft}>
+              <AppIcon name="clock-outline" color={colors.accent} size={18} />
+              <Text style={[typography.cardHeading, {color: colors.accent}]}>
+                NEXT SCHEDULED ALARM
+              </Text>
+            </View>
+            {nextUpcoming ? (
+              <View
+                style={[
+                  styles.nextDayBadge,
+                  {
+                    backgroundColor: colors.badgeActiveBg,
+                    borderColor: colors.badgeActiveBorder,
+                    borderRadius: radius.badge || 6,
+                  },
+                ]}>
+                <Text style={[styles.nextDayText, {color: colors.accent}]}>
+                  {relativeDayLabel(nextUpcoming.triggerAtMillis)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {nextUpcoming ? (
+            <View style={styles.nextAlarmBody}>
+              <Text style={[typography.listTime, styles.nextTimeText, {color: colors.text}]}>
+                {formatAlarmListTime(nextUpcoming.hour, nextUpcoming.minute)}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[typography.body, styles.nextLabelText, {color: colors.textSoft}]}>
+                {nextUpcoming.label || 'Mission'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyNextAlarm}>
+              <Text style={[typography.body, {color: colors.muted}]}>
+                No active alarms scheduled
+              </Text>
+            </View>
+          )}
+        </SurfaceCard>
+
+        {/* 2. REAL SETTINGS: APPEARANCE */}
         <Text style={[typography.sectionLabel, styles.section, {color: colors.muted}]}>
           APPEARANCE
         </Text>
@@ -112,6 +238,7 @@ export function ProfileScreen() {
                   {
                     backgroundColor: colors.surfaceRaised,
                     borderColor: selected ? colors.accent : colors.border,
+                    borderRadius: radius.md,
                   },
                   pressed && !saving && styles.pressed,
                 ]}>
@@ -132,29 +259,94 @@ export function ProfileScreen() {
             );
           })}
         </View>
+
+        {/* 3. REAL SETTINGS: ALARM & SYSTEM PERMISSIONS */}
         <Text style={[typography.sectionLabel, styles.section, {color: colors.muted}]}>
           ALARM PERMISSIONS
         </Text>
-        <SurfaceCard>
+        <SurfaceCard
+          style={[
+            styles.permissionsCard,
+            {
+              backgroundColor: colors.surfaceRaised,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+            },
+          ]}>
           <CapabilityNotices
             capability={capability}
             disabled={busy}
             onError={setError}
           />
+          {allPermissionsGranted ? (
+            <View style={styles.permissionOkRow}>
+              <AppIcon name="shield-check-outline" color={colors.success} size={22} />
+              <View style={styles.permissionOkCopy}>
+                <Text style={[typography.bodyStrong, {color: colors.text}]}>
+                  System Permissions Granted
+                </Text>
+                <Text style={[typography.caption, {color: colors.muted}]}>
+                  Exact alarm and full-screen alerts are operational.
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </SurfaceCard>
+
+        {/* 4. ABOUT B-DISCIPLINE */}
         <Text style={[typography.sectionLabel, styles.section, {color: colors.muted}]}>
-          DEVELOPER
+          ABOUT B-DISCIPLINE
         </Text>
-        <PrimaryButton
-          disabled={busy}
-          label="Test Alarm"
-          onPress={runTestAlarm}
-        />
-        {message ? (
-          <Text style={[typography.caption, styles.feedback, {color: colors.success}]}>
-            {message}
+        <SurfaceCard
+          style={[
+            styles.aboutCard,
+            {
+              backgroundColor: colors.surfaceRaised,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+            },
+          ]}>
+          <View style={styles.aboutHeader}>
+            <View
+              style={[
+                styles.aboutIconTile,
+                {
+                  backgroundColor: colors.surfaceDeep,
+                  borderColor: colors.borderSubtle || colors.border,
+                  borderRadius: radius.icon,
+                },
+              ]}>
+              <AppIcon name="lightning-bolt" color={colors.accent} size={22} />
+            </View>
+            <View style={styles.aboutTitleWrap}>
+              <Text style={[typography.brandTitle, {color: colors.text}]}>
+                B-DISCIPLINE
+              </Text>
+              <Text style={[typography.caption, {color: colors.muted}]}>
+                {`Version ${packageJson.version}`}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[typography.body, styles.aboutDescription, {color: colors.textSoft}]}>
+            Built for unwavering dawn adherence. No soft dismissals, no second chances. Master the morning, conquer the day.
           </Text>
-        ) : null}
+
+          <View
+            style={[
+              styles.aboutFooter,
+              {
+                backgroundColor: colors.surfaceDeep,
+                borderRadius: radius.sm,
+              },
+            ]}>
+            <AppIcon name="lock-outline" color={colors.accent} size={15} />
+            <Text style={[typography.caption, styles.aboutFooterText, {color: colors.accent}]}>
+              Local-First Alarm Engine · 100% Offline & Private
+            </Text>
+          </View>
+        </SurfaceCard>
+
         {error || loadError ? (
           <Text style={[typography.caption, styles.feedback, {color: colors.error}]}>
             {error || loadError}
@@ -176,15 +368,83 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginTop: spacing.lg,
   },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  metricCard: {
+    alignItems: 'center',
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 4,
+    paddingVertical: spacing.md,
+  },
+  metricIconWrap: {
+    alignItems: 'center',
+    height: 24,
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  nextAlarmCard: {
+    borderWidth: 1,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  nextAlarmHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  nextAlarmHeaderLeft: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  nextDayBadge: {
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  nextDayText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  nextAlarmBody: {
+    marginTop: 4,
+  },
+  nextTimeText: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  nextLabelText: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  emptyNextAlarm: {
+    paddingVertical: spacing.xs,
+  },
   option: {
     alignItems: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     marginBottom: spacing.sm,
-    minHeight: 72,
+    minHeight: 70,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   pressed: {
     opacity: 0.88,
@@ -192,6 +452,54 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     marginLeft: spacing.md,
+  },
+  permissionsCard: {
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  permissionOkRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  permissionOkCopy: {
+    flex: 1,
+  },
+  aboutCard: {
+    borderWidth: 1,
+    padding: spacing.md,
+  },
+  aboutHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  aboutIconTile: {
+    alignItems: 'center',
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  aboutTitleWrap: {
+    flex: 1,
+  },
+  aboutDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  aboutFooter: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+  },
+  aboutFooterText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   feedback: {
     lineHeight: 20,

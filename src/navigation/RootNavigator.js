@@ -7,6 +7,7 @@ import {AppIcon} from '../components/AppIcon';
 import {AlarmEditorScreen} from '../screens/AlarmEditorScreen';
 import {ImageEditorScreen} from '../screens/alarm/ImageEditorScreen';
 import {AlarmsScreen} from '../screens/AlarmsScreen';
+import {LandingScreen} from '../screens/LandingScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
 import {PuzzleScreen} from '../screens/PuzzleScreen';
 import {VisionRitualEditorScreen} from '../screens/vision/VisionRitualEditorScreen';
@@ -52,10 +53,12 @@ export function RootNavigator() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
+        initialRouteName="Landing"
         screenOptions={{
           headerShown: false,
           contentStyle: {backgroundColor: colors.background},
         }}>
+        <Stack.Screen name="Landing" component={LandingScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen
           name="Editor"
